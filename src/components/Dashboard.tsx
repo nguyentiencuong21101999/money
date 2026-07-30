@@ -16,6 +16,7 @@ import { useBudget, useTransactions } from "@/lib/transactions";
 import type { Transaction } from "@/lib/types";
 import { BudgetBar } from "./BudgetBar";
 import { CategoryBars } from "./CategoryBars";
+import { Logo } from "./Logo";
 import { MonthPicker } from "./MonthPicker";
 import { MonthlyTrend } from "./MonthlyTrend";
 import { SummaryPanel } from "./SummaryPanel";
@@ -110,7 +111,10 @@ export function Dashboard() {
           z-40 của dropdown trong UserMenu sẽ bị nhốt bên trong và tụt xuống dưới
           thanh chọn tháng (z-20). Đặt z cho chính header để cả khối nổi lên trên. */}
       <header className="animate-fade relative z-30 mb-4 flex items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold">💰 Sổ tiền</h1>
+        <h1 className="flex items-center gap-2 text-lg font-semibold">
+          <Logo size={26} />
+          Sổ tiền
+        </h1>
         <div className="flex items-center gap-2">
           <Link
             href="/sao-ke"

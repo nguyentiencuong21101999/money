@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { firebaseConfigured } from "@/lib/firebase";
+import { Logo } from "./Logo";
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const { user, loading, error, signIn } = useAuth();
@@ -14,12 +15,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
       <Centered>
         {/* Chỉ icon thở nhẹ — F5 xong thấy ngay nhận diện quen thuộc,
             không phải một câu thông báo kỹ thuật. */}
-        <span
-          role="status"
-          aria-label="Đang tải"
-          className="bg-expense/10 animate-breathe flex h-16 w-16 items-center justify-center rounded-2xl text-3xl"
-        >
-          💰
+        <span role="status" aria-label="Đang tải" className="animate-breathe">
+          <Logo size={64} />
         </span>
       </Centered>
     );
@@ -29,9 +26,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return (
       <Centered>
         <div className="card animate-pop w-full max-w-sm p-8 text-center">
-          {/* Vòng tròn hồng nhạt làm nền cho icon, để logo không trôi lơ lửng. */}
-          <span className="bg-expense/10 mx-auto flex h-16 w-16 items-center justify-center rounded-2xl text-3xl">
-            💰
+          <span className="mx-auto block w-fit">
+            <Logo size={64} />
           </span>
           <h1 className="mt-4 text-xl font-semibold">Sổ tiền</h1>
           <p className="text-ink-2 mt-1.5 text-sm leading-relaxed">
