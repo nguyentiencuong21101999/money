@@ -1,0 +1,39 @@
+rules_version = '2';
+
+// Dán toàn bộ file này vào Firebase Console > Firestore Database > tab Rules > Publish.
+// Nguyên tắc: mỗi người chỉ đọc/ghi được đúng dữ liệu của chính mình.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /transactions/{txId} {
+        allow read, delete: if request.auth != null && request.auth.uid == userId;
+        allow create, update: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.amount is number
+          && request.resource.data.amount >= 0
+          && request.resource.data.type in ['income', 'expense']
+          && request.resource.data.month is string
+          && request.resource.data.date is string
+          // chặn ảnh quá to làm phình document (giới hạn cứng của Firestore là 1MB/doc)
+          && (!('thumbnail' in request.resource.data)
+              || request.resource.data.thumbnail.size() < 400000);
+      }
+
+      match /budgets/{month} {
+        allow read, delete: if request.auth != null && request.auth.uid == userId;
+        allow create, update: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.limit is number
+          && request.resource.data.limit >= 0;
+      }
+    }
+
+    // Mọi thứ khác: cấm.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
