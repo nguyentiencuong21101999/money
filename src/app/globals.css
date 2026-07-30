@@ -1,0 +1,334 @@
+@import "tailwindcss";
+
+/*
+  TÔNG HỒNG — mọi giá trị đều đã đo, không ước lượng bằng mắt.
+
+  Cặp màu biểu đồ #d6336c (tiền ra) ↔ #2a78d6 (tiền vào), chạy qua
+  scripts/validate_palette.js trên nền #fffafb: đạt sạch 5/5 tiêu chí,
+  CVD ΔE 17.2 (protan) và normal ΔE 29.8, contrast cả hai đều >= 3:1.
+
+  Đã LOẠI hồng + xanh ngọc (#d6336c ↔ #0f9b8e): nhìn thường thì rất hợp
+  nhưng với người mù màu lục chỉ còn ΔE 5.5, dưới ngưỡng an toàn 8.
+
+  Tương phản chữ (WCAG AA cần 4.5): trắng trên #c2255c = 5.66 · ink = 18.0
+  · ink-2 = 7.95 · muted = 4.82 · hồng làm chữ = 5.47.
+*/
+@theme inline {
+  --color-plane: #faf5f7; /* nền trang, ánh hồng rất nhạt */
+  --color-surface: #fffafb; /* nền thẻ, cũng là nền biểu đồ */
+  --color-ink: #1a1015; /* đen ngả mận, ấm hơn đen thuần */
+  --color-ink-2: #5c4a52;
+  --color-muted: #7d6b71;
+  --color-grid: #f2e6ea;
+  --color-axis: #e0ccd3;
+  --color-hairline: rgba(26, 16, 21, 0.09);
+
+  --color-expense: #d6336c; /* hồng — tiền ra, cũng là màu nhận diện */
+  --color-income: #2a78d6; /* xanh dương — tiền vào */
+  --color-brand: #c2255c; /* bước đậm hơn của ramp hồng, dùng cho nút chính */
+  --color-track: #f5bfd3; /* rãnh thanh hạn mức, bước nhạt cùng ramp */
+
+  --color-good: #0ca30c;
+  --color-warning: #fab219;
+  --color-critical: #d03b3b;
+
+  /*
+    Màu CHỮ cho dấu của số tiền — mã hoá chiều âm/dương, không phải mã hoá
+    chuỗi số liệu, nên được phép khác màu cột biểu đồ.
+    Cả hai đều đạt WCAG AA trên nền thẻ: đỏ 5.44:1 · xanh 7.30:1.
+    Đỏ #c62828 cố ý khác hẳn hồng nhận diện #d6336c để không đọc nhầm
+    "số tiền chi" thành "màu thương hiệu".
+  */
+  --color-success-text: #006300; /* số cộng */
+  --color-danger-text: #c62828; /* số trừ */
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-plane);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Ẩn mũi tên tăng/giảm của input[type=number] cho gọn */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+@utility card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-hairline);
+  border-radius: 0.875rem;
+  box-shadow:
+    0 1px 2px rgba(11, 11, 11, 0.04),
+    0 1px 1px rgba(11, 11, 11, 0.02);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.25s ease,
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---------------------------------------------------------------
+   Trạng thái tương tác. Chỉ gắn vào thứ THẬT SỰ bấm được — thẻ chỉ
+   để đọc mà cũng nhấc lên khi rê chuột là hứa hẹn một hành động
+   không tồn tại.
+   --------------------------------------------------------------- */
+
+/* Thẻ bấm được: viền ngả hồng và nhấc nhẹ 1px. */
+.liftable:hover {
+  border-color: rgba(214, 51, 108, 0.35);
+  box-shadow:
+    0 8px 20px -10px rgba(194, 37, 92, 0.3),
+    0 1px 2px rgba(11, 11, 11, 0.04);
+  transform: translateY(-1px);
+}
+
+.liftable:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(11, 11, 11, 0.04);
+}
+
+/* Nhóm đang mở: viền hồng nhạt để mắt biết đang đọc khối nào. */
+.is-open {
+  border-color: rgba(214, 51, 108, 0.3);
+  box-shadow:
+    0 4px 14px -8px rgba(194, 37, 92, 0.22),
+    0 1px 2px rgba(11, 11, 11, 0.04);
+}
+
+/*
+  Vòng focus dùng chung cho mọi thứ bấm được — trước đây bấm Tab đi khắp
+  app mà không thấy mình đang đứng ở đâu. Dùng :where() để độ ưu tiên bằng 0,
+  component nào cần vẫn ghi đè được.
+*/
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+/*
+  Nền chung cho MỌI nút: con trỏ đúng trạng thái và mọi thay đổi màu đều
+  chuyển mượt. Đặt trong :where() nên độ ưu tiên bằng 0 — component nào khai
+  báo riêng vẫn thắng, không phá thứ đang có.
+*/
+:where(button, a, [role="button"]) {
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.2s ease,
+    opacity 0.18s ease,
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:where(button:not(:disabled), [role="button"]:not([aria-disabled="true"])) {
+  cursor: pointer;
+}
+
+:where(button:disabled) {
+  cursor: not-allowed;
+}
+
+/* Nút nền đậm (nút chính): sáng lên và nhấc nhẹ khi rê chuột. */
+:where(button:not(:disabled)).bg-brand:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 6px 16px -6px rgba(194, 37, 92, 0.45);
+}
+
+:where(button:not(:disabled)).bg-brand:active {
+  filter: brightness(0.96);
+  transform: scale(0.98);
+}
+
+/* ---------------------------------------------------------------
+   Chuyển động. Nguyên tắc: ngắn (150–320ms), nhẹ, chỉ dùng
+   transform + opacity để không gây reflow. Toàn bộ tự tắt khi
+   người dùng bật "giảm chuyển động" trong hệ điều hành.
+   --------------------------------------------------------------- */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+/*
+  Dropdown sổ xuống. Dùng clip-path để LỘ DẦN từ trên xuống, không phải
+  scaleY — scaleY sẽ bóp méo chữ bên trong trong lúc chạy.
+*/
+@keyframes drop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Cột/thanh biểu đồ mọc ra từ đường gốc — thuần CSS, không cần state. */
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@utility animate-rise {
+  animation: rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility animate-fade {
+  animation: fade 0.25s ease-out both;
+}
+
+@utility animate-pop {
+  animation: pop 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility animate-sheet {
+  animation: slide-up 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility animate-drop {
+  transform-origin: top center;
+  animation: drop 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/*
+  Panel chèn thẳng trong luồng (lịch trong form, danh sách trong nhóm) thì
+  clip-path không đủ: chỗ trống bị chiếm ngay lập tức nên nhìn vẫn giật.
+  Animate grid-template-rows 0fr → 1fr mới cho chiều cao nở dần thật sự.
+  Con trực tiếp phải là một khối min-h-0 overflow-hidden.
+*/
+@keyframes expand {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+
+@utility animate-expand {
+  display: grid;
+  grid-template-rows: 1fr;
+  animation: expand 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Nhịp thở của icon lúc chờ — chậm và nhẹ, không gây sốt ruột. */
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.92);
+    opacity: 0.65;
+  }
+}
+
+@utility animate-breathe {
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+@utility animate-grow-x {
+  transform-origin: left center;
+  animation: grow-x 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility animate-grow-y {
+  transform-origin: bottom center;
+  animation: grow-y 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+  Một định nghĩa duy nhất cho MỌI ô nhập — input, select, và cả nút mở lịch /
+  mở bảng chọn tháng. Trước đây input để 15px còn nút để 14px nên đứng cạnh
+  nhau trong cùng một hàng lưới là lệch cả cỡ chữ lẫn chiều cao.
+*/
+@utility field {
+  width: 100%;
+  min-height: 2.5rem;
+  border-radius: 0.625rem;
+  border: 1px solid var(--color-axis);
+  background: var(--color-surface);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.35;
+  outline: none;
+}
+
+.field {
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+/* Placeholder chỉ là gợi ý — nhỏ và nhạt hơn để không tranh chỗ với giá trị
+   thật người dùng gõ vào. Đặt sau .field nên thắng cả cỡ chữ text-lg của ô số tiền. */
+.field::placeholder {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  opacity: 1;
+}
+
+.field:focus {
+  border-color: var(--color-expense);
+  box-shadow: 0 0 0 3px rgba(214, 51, 108, 0.16);
+}
+
+/* Ô nhập đã có vòng hồng bo theo góc của chính nó rồi; để thêm outline chung
+   nữa là thành hai đường viền chồng nhau. */
+.field:focus-visible {
+  outline: none;
+}
