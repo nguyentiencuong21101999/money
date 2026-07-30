@@ -49,11 +49,16 @@ export function UploadScan({ onScanned, thumbnail, onRemove }: Props) {
 
   return (
     <div>
+      {/*
+        KHÔNG dùng thuộc tính `capture`. Trên điện thoại nó ép mở thẳng camera
+        và cắt mất lựa chọn lấy ảnh có sẵn — trong khi hoá đơn thường đã nằm
+        trong thư viện dưới dạng ảnh chụp màn hình chuyển khoản.
+        Bỏ đi thì hệ điều hành hiện đủ menu: Thư viện ảnh · Chụp ảnh · Chọn tệp.
+      */}
       <input
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         className="hidden"
         onChange={(e) => scan(e.target.files?.[0])}
       />
@@ -136,7 +141,7 @@ export function UploadScan({ onScanned, thumbnail, onRemove }: Props) {
             <span>Thả ảnh vào đây</span>
           ) : (
             <>
-              <span>📷 Chụp hoặc chọn ảnh hoá đơn</span>
+              <span>📷 Chọn ảnh hoá đơn từ máy hoặc chụp mới</span>
               <span className="text-expense/70 text-xs font-normal">
                 Dán ảnh (⌘V / Ctrl+V) hoặc kéo thả vào đây cũng được
               </span>
