@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { User } from "firebase/auth";
+import { isAdminEmail } from "@/lib/admin";
 import { monthYearInVN } from "@/lib/date";
 import { useRevealOnOpen } from "@/lib/reveal";
 import { PushToggle } from "./PushToggle";
@@ -83,6 +85,17 @@ export function UserMenu({ user, onSignOut }: Props) {
           </dl>
 
           <PushToggle uid={user.uid} />
+
+          {isAdminEmail(user.email) && (
+            <Link
+              href="/manager"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="border-hairline hover:bg-plane block border-t px-4 py-3 text-sm font-medium transition"
+            >
+              👥 Quản lý người dùng
+            </Link>
+          )}
 
           <button
             type="button"
