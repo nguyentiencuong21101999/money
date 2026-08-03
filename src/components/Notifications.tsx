@@ -40,7 +40,8 @@ export function Notifications() {
           disabled={unread === 0}
           className={HEADER_BUTTON}
         >
-          Đánh dấu đã đọc tất cả
+          <span className="sm:hidden">Đọc tất cả</span>
+          <span className="hidden sm:inline">Đánh dấu đã đọc tất cả</span>
         </button>
       </PageHeader>
 

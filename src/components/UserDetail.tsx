@@ -48,20 +48,22 @@ export function UserDetail({ uid }: { uid: string }) {
     <div className="mx-auto max-w-2xl px-4 pt-4 pb-16">
       <PageHeader title="Chi tiết" href="/manager" backLabel="danh sách người dùng" />
 
+      {/* Điện thoại: ảnh trên, chữ dưới, hai nút thành một hàng rộng hết thẻ.
+          Từ sm trở lên mới xếp ngang được mà chữ vẫn đọc trọn. */}
       {profile && (
-        <section className="card animate-rise mb-4 flex flex-wrap items-center gap-3 p-4">
-          <UserCard profile={profile} now={now} />
-          <div className="flex shrink-0 items-center gap-2">
+        <section className="card animate-rise mb-4 flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+          <UserCard profile={profile} now={now} stack />
+          <div className="flex items-center gap-2 sm:shrink-0">
             <Link
               href={`/manager/${uid}/sao-ke`}
-              className="border-hairline text-ink-2 hover:bg-expense/8 rounded-lg border px-3 py-2 text-xs font-medium transition active:scale-[0.97]"
+              className="border-hairline text-ink-2 hover:bg-expense/8 flex-1 rounded-lg border px-3 py-2 text-center text-xs font-medium whitespace-nowrap transition active:scale-[0.97] sm:flex-none"
             >
               Sao kê
             </Link>
             <button
               type="button"
               onClick={() => setSending(true)}
-              className="bg-brand rounded-lg px-3 py-2 text-xs font-medium text-white transition hover:brightness-110 active:scale-[0.97]"
+              className="bg-brand flex-1 rounded-lg px-3 py-2 text-xs font-medium whitespace-nowrap text-white transition hover:brightness-110 active:scale-[0.97] sm:flex-none"
             >
               Gửi thông báo
             </button>

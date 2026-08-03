@@ -42,12 +42,15 @@ export function UserMenu({ user, onSignOut }: Props) {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className={`bg-surface flex items-center gap-2 rounded-full border py-1 pr-3 pl-1 transition duration-200 active:scale-[0.97] ${
+        aria-label={`Tài khoản ${name}`}
+        className={`bg-surface flex shrink-0 items-center gap-2 rounded-full border py-1 pr-2 pl-1 sm:pr-3 transition duration-200 active:scale-[0.97] ${
           open ? "border-expense/45" : "border-hairline hover:border-expense/30"
         }`}
       >
         <Avatar user={user} size={26} />
-        <span className="max-w-28 truncate text-xs font-medium">
+        {/* Trên điện thoại chỉ còn ảnh: cái tên này ngốn ~45px, đủ để header
+            phải gãy dòng. Ảnh đã đủ để biết đang đăng nhập bằng tài khoản nào. */}
+        <span className="hidden max-w-28 truncate text-xs font-medium sm:inline">
           {firstName(name)}
         </span>
         <span

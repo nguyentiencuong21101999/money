@@ -82,7 +82,8 @@ export function Statement({ uid: otherUid, ownerName }: Props = {}) {
           disabled={total.count === 0}
           className={HEADER_BUTTON}
         >
-          Xuất CSV
+          <span className="sm:hidden">CSV</span>
+          <span className="hidden sm:inline">Xuất CSV</span>
         </button>
       </PageHeader>
 
