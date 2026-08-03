@@ -20,6 +20,13 @@ export const INCOME_CATEGORIES = [
   "Khác",
 ] as const;
 
+/**
+ * Icon cho "Khác", cũng là icon dự phòng cho danh mục lạ — normalizeCategory()
+ * dồn mọi thứ không khớp về "Khác" nên hai chỗ này phải trông giống nhau.
+ * Trước là dấu "•", nhỏ và mờ nhạt, nhìn như lỗi hiển thị hơn là một danh mục.
+ */
+const DEFAULT_ICON = "💵";
+
 export const CATEGORY_ICON: Record<string, string> = {
   "Ăn uống": "🍜",
   "Đi lại": "🛵",
@@ -33,7 +40,7 @@ export const CATEGORY_ICON: Record<string, string> = {
   Thưởng: "🎁",
   "Đầu tư": "📈",
   "Được tặng": "💝",
-  Khác: "•",
+  Khác: DEFAULT_ICON,
 };
 
 export function categoriesFor(type: TxType): readonly string[] {
@@ -49,5 +56,5 @@ export function normalizeCategory(raw: string | null | undefined, type: TxType):
 }
 
 export function iconFor(category: string): string {
-  return CATEGORY_ICON[category] ?? "•";
+  return CATEGORY_ICON[category] ?? DEFAULT_ICON;
 }

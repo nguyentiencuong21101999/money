@@ -40,7 +40,7 @@ export function CollapsibleGroup({
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
-        className="hover:bg-plane flex w-full items-center gap-3 px-3.5 py-3 text-left transition"
+        className="hover:bg-expense/8 flex w-full items-center gap-3 px-3.5 py-3 text-left transition"
       >
         <span
           aria-hidden="true"

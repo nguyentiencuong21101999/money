@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { iconFor } from "@/lib/categories";
@@ -18,11 +17,19 @@ import { byCategoryOf, summarize } from "@/lib/stats";
 import { useTransactions } from "@/lib/transactions";
 import type { Transaction } from "@/lib/types";
 import { CollapsibleGroup, GroupList, netOf } from "./CollapsibleGroup";
+import { HEADER_BUTTON, PageHeader } from "./PageHeader";
 import { defaultRange, RangePicker } from "./RangePicker";
 
-export function Statement() {
+interface Props {
+  /** Xem sao kê của người khác (trang quản lý). Bỏ trống = của chính mình. */
+  uid?: string;
+  /** Tên người đó, chỉ để hiện trên đầu trang khi admin đang xem hộ. */
+  ownerName?: string;
+}
+
+export function Statement({ uid: otherUid, ownerName }: Props = {}) {
   const { user } = useAuth();
-  const uid = user!.uid;
+  const uid = otherUid ?? user!.uid;
   const latest = currentMonth();
 
   const [range, setRange] = useState(() => defaultRange(latest));
@@ -62,26 +69,22 @@ export function Statement() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 pt-4 pb-16">
-      <header className="animate-fade mb-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Link
-            href="/"
-            aria-label="Quay lại"
-            className="border-hairline hover:bg-surface flex h-8 w-8 items-center justify-center rounded-lg border text-lg leading-none transition active:scale-95"
-          >
-            ‹
-          </Link>
-          <h1 className="text-lg font-semibold">Sao kê</h1>
-        </div>
+      {/* Admin xem hộ thì logo lùi về đúng trang chi tiết vừa bấm sang, không
+          nhảy thẳng về trang chủ bắt đi lại từ đầu. */}
+      <PageHeader
+        title={ownerName ? `Sao kê · ${ownerName}` : "Sao kê"}
+        href={otherUid ? `/manager/${otherUid}` : "/"}
+        backLabel={otherUid ? "trang chi tiết người dùng" : "trang chủ"}
+      >
         <button
           type="button"
           onClick={() => exportCSV(months, transactions)}
           disabled={total.count === 0}
-          className="bg-brand rounded-lg px-3 py-1.5 text-xs font-medium text-white transition hover:brightness-110 active:scale-[0.97] disabled:opacity-40"
+          className={HEADER_BUTTON}
         >
           Xuất CSV
         </button>
-      </header>
+      </PageHeader>
 
       <RangePicker latest={latest} value={range} onChange={setRange} />
 

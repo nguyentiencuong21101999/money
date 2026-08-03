@@ -9,7 +9,12 @@ import { CollapsibleGroup, GroupList, netOf } from "./CollapsibleGroup";
 
 interface Props {
   transactions: Transaction[];
-  onEdit: (tx: Transaction) => void;
+  /**
+   * Bỏ trống = danh sách chỉ để xem (trang quản lý xem hộ người khác).
+   * Lúc đó dòng không bấm được — admin không sửa được giao dịch của người khác,
+   * rules cũng chặn, nên đừng vẽ ra thứ trông như bấm được.
+   */
+  onEdit?: (tx: Transaction) => void;
 }
 
 export function TxList({ transactions, onEdit }: Props) {
@@ -23,11 +28,13 @@ export function TxList({ transactions, onEdit }: Props) {
           🧾
         </div>
         <p className="mt-2 text-sm font-medium">Tháng này chưa ghi khoản nào</p>
-        <p className="text-muted mt-1 text-sm">
-          Bấm <strong>+ Thêm giao dịch</strong> để gõ tay,
-          <br />
-          hoặc dán thẳng ảnh hoá đơn vào đây.
-        </p>
+        {onEdit && (
+          <p className="text-muted mt-1 text-sm">
+            Bấm <strong>+ Thêm giao dịch</strong> để gõ tay,
+            <br />
+            hoặc dán thẳng ảnh hoá đơn vào đây.
+          </p>
+        )}
       </div>
     );
   }
@@ -52,11 +59,7 @@ export function TxList({ transactions, onEdit }: Props) {
           >
             {rows.map((tx) => (
               <li key={tx.id}>
-                <button
-                  type="button"
-                  onClick={() => onEdit(tx)}
-                  className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition duration-200 ease-out hover:bg-black/2.5 active:scale-[0.99]"
-                >
+                <Row tx={tx} onEdit={onEdit}>
                   {tx.thumbnail ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -89,13 +92,37 @@ export function TxList({ transactions, onEdit }: Props) {
                     {tx.type === "income" ? "+" : "−"}
                     {formatVND(tx.amount).replace(" ₫", "")}
                   </span>
-                </button>
+                </Row>
               </li>
             ))}
           </CollapsibleGroup>
         );
       })}
     </GroupList>
+  );
+}
+
+const ROW = "flex w-full items-center gap-3 px-3.5 py-3 text-left";
+
+/** Bấm được thì là <button>, chỉ để xem thì là <div> — không thừa vai trò nào. */
+function Row({
+  tx,
+  onEdit,
+  children,
+}: {
+  tx: Transaction;
+  onEdit?: (tx: Transaction) => void;
+  children: React.ReactNode;
+}) {
+  if (!onEdit) return <div className={ROW}>{children}</div>;
+  return (
+    <button
+      type="button"
+      onClick={() => onEdit(tx)}
+      className={`${ROW} transition duration-200 ease-out hover:bg-expense/8 active:scale-[0.995]`}
+    >
+      {children}
+    </button>
   );
 }
 

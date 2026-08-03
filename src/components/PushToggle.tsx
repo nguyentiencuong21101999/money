@@ -10,6 +10,7 @@ import {
   watchPermission,
   type PushState,
 } from "@/lib/push";
+import { BellIcon } from "./icons";
 
 /**
  * Một dòng trong menu người dùng, có công tắc bật/tắt thông báo cho MÁY NÀY.
@@ -59,6 +60,7 @@ export function PushToggle({ uid }: { uid: string }) {
   }
 
   const on = state === "on";
+  const note = hint(state, working);
   // Chặn hẳn thì gạt cũng vô ích — trình duyệt không cho hỏi lại quyền nữa.
   const locked = state === "blocked" || state === "unsupported";
 
@@ -66,10 +68,17 @@ export function PushToggle({ uid }: { uid: string }) {
     <div className="border-hairline border-t px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className={`text-sm font-medium ${locked ? "text-muted" : ""}`}>
-            🔔 Thông báo
+          <p
+            className={`flex items-center gap-2 text-sm font-medium ${
+              locked ? "text-muted" : ""
+            }`}
+          >
+            <BellIcon size={16} className={locked ? "" : "text-expense"} />
+            Thông báo
           </p>
-          <p className="text-muted mt-0.5 text-xs">{hint(state, working)}</p>
+          {/* Chỉ nói khi có gì cần nói: đang bật/tắt, hoặc trình duyệt chặn.
+              Trạng thái thường thì công tắc đã tự nói hết, thêm chữ chỉ rối. */}
+          {note && <p className="text-muted mt-0.5 text-xs">{note}</p>}
         </div>
 
         <button
@@ -102,10 +111,9 @@ export function PushToggle({ uid }: { uid: string }) {
 
 function hint(state: PushState, working: boolean): string {
   if (working) return state === "on" ? "Đang tắt…" : "Đang bật…";
-  if (state === "on") return "Máy này đang nhận thông báo";
-  if (state === "off") return "Bật để nhận nhắc trên máy này";
-  if (state === "blocked") {
-    return "Trình duyệt đang chặn. Bấm ổ khoá cạnh thanh địa chỉ để mở lại.";
+  if (state === "blocked") return "Trình duyệt đang chặn. Bấm ổ khoá cạnh thanh địa chỉ.";
+  if (state === "unsupported") {
+    return "Trên iPhone phải Thêm vào màn hình chính trước.";
   }
-  return "Máy này chưa nhận được. Trên iPhone phải Thêm vào màn hình chính.";
+  return "";
 }

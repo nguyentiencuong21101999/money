@@ -11,6 +11,7 @@ import {
 } from "@/lib/notifications";
 import { useNow } from "@/lib/now";
 import { useRevealOnOpen } from "@/lib/reveal";
+import { BellIcon } from "./icons";
 import { NotificationRow } from "./NotificationRow";
 
 /** Chuông + hộp thư 10 thông báo gần nhất, đặt cạnh nút Xuất CSV. */
@@ -54,11 +55,15 @@ export function NotificationBell({ uid }: { uid: string }) {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={unread > 0 ? `Thông báo, ${unread} chưa đọc` : "Thông báo"}
-        className={`relative flex h-[30px] w-[30px] items-center justify-center rounded-lg border text-sm transition active:scale-[0.95] ${
-          open ? "border-expense/45 bg-surface" : "border-hairline hover:bg-surface"
+        // Cùng px/py với các nút chữ bên cạnh nên cao y nhau, không phải
+        // ép h-[30px] rồi cầu mong nó khớp.
+        className={`relative rounded-lg border px-2 py-1.5 transition active:scale-[0.97] ${
+          open
+            ? "border-expense/45 bg-surface"
+            : "border-hairline hover:border-expense/30 hover:bg-expense/8"
         }`}
       >
-        <span aria-hidden="true">🔔</span>
+        <BellIcon size={17} className="text-expense" />
         {unread > 0 && (
           <span className="bg-expense absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white tabular-nums">
             {unread > 99 ? "99+" : unread}
@@ -110,7 +115,7 @@ export function NotificationBell({ uid }: { uid: string }) {
           <Link
             href="/thong-bao"
             onClick={() => setOpen(false)}
-            className="border-hairline text-ink-2 hover:bg-plane block border-t px-4 py-3 text-center text-sm font-medium transition"
+            className="border-hairline text-ink-2 hover:bg-expense/8 block border-t px-4 py-3 text-center text-sm font-medium transition"
           >
             Xem tất cả
           </Link>

@@ -17,7 +17,7 @@ export function NotificationRow({ item, onOpen, now }: Props) {
       <button
         type="button"
         onClick={() => onOpen(item)}
-        className={`flex w-full items-start gap-2.5 px-4 py-3 text-left transition duration-200 hover:bg-black/2.5 active:scale-[0.995] ${
+        className={`flex w-full items-start gap-2.5 px-4 py-3 text-left transition duration-200 hover:bg-expense/8 active:scale-[0.995] ${
           item.isRead ? "" : "bg-expense/5"
         }`}
       >

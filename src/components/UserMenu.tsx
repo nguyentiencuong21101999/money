@@ -6,6 +6,7 @@ import type { User } from "firebase/auth";
 import { isAdminEmail } from "@/lib/admin";
 import { monthYearInVN } from "@/lib/date";
 import { useRevealOnOpen } from "@/lib/reveal";
+import { UsersIcon } from "./icons";
 import { PushToggle } from "./PushToggle";
 
 interface Props {
@@ -41,7 +42,7 @@ export function UserMenu({ user, onSignOut }: Props) {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className={`bg-surface flex items-center gap-2 rounded-full border py-1 pr-3 pl-1 transition-colors duration-200 active:scale-[0.97] ${
+        className={`bg-surface flex items-center gap-2 rounded-full border py-1 pr-3 pl-1 transition duration-200 active:scale-[0.97] ${
           open ? "border-expense/45" : "border-hairline hover:border-expense/30"
         }`}
       >
@@ -91,9 +92,10 @@ export function UserMenu({ user, onSignOut }: Props) {
               href="/manager"
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="border-hairline hover:bg-plane block border-t px-4 py-3 text-sm font-medium transition"
+              className="border-hairline hover:bg-expense/8 flex items-center gap-2 border-t px-4 py-3 text-sm font-medium transition"
             >
-              👥 Quản lý người dùng
+              <UsersIcon size={16} className="text-expense" />
+              Quản lý người dùng
             </Link>
           )}
 

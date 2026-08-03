@@ -31,7 +31,7 @@ export function CategoryBars({ slices }: { slices: CategorySlice[] }) {
             key={slice.category}
             /* Nền hover rất nhạt: đủ để mắt bám dòng khi dò số, nhưng không
                có con trỏ tay / viền nút để khỏi hứa hẹn một hành động không có. */
-            className="hover:bg-grid/70 -mx-1.5 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 rounded-lg px-1.5 py-1 transition-colors"
+            className="hover:bg-expense/8 -mx-1.5 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 rounded-lg px-1.5 py-1 transition-colors"
           >
             <span className="flex min-w-0 items-center gap-1.5 text-sm">
               <span aria-hidden="true">{iconFor(slice.category)}</span>

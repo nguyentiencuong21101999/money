@@ -3,9 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useAdminGate } from "@/lib/admin-gate";
-import { iconFor } from "@/lib/categories";
-import { currentMonth, dateVN, dayLabel, lastNMonths, shiftMonth, timeAgo } from "@/lib/date";
-import { formatVND } from "@/lib/money";
+import { currentMonth, lastNMonths, shiftMonth } from "@/lib/date";
 import { useNow } from "@/lib/now";
 import { useProfile } from "@/lib/profile";
 import { byCategory, spendingDelta, summarize, trend } from "@/lib/stats";
@@ -13,14 +11,18 @@ import { useTransactions } from "@/lib/transactions";
 import { CategoryBars } from "./CategoryBars";
 import { MonthPicker } from "./MonthPicker";
 import { MonthlyTrend } from "./MonthlyTrend";
+import { PageHeader } from "./PageHeader";
 import { SendNotice } from "./SendNotice";
 import { SummaryPanel } from "./SummaryPanel";
+import { TxList } from "./TxList";
+import { UserCard } from "./UserCard";
 
 const TREND_MONTHS = 6;
 
 export function UserDetail({ uid }: { uid: string }) {
   const allowed = useAdminGate();
   const [month, setMonth] = useState(currentMonth());
+  const [sending, setSending] = useState(false);
   const now = useNow();
 
   const { data: profile } = useProfile(uid, allowed);
@@ -44,25 +46,28 @@ export function UserDetail({ uid }: { uid: string }) {
 
   return (
     <div className="mx-auto max-w-2xl px-4 pt-4 pb-16">
-      <header className="animate-fade mb-4 flex items-center gap-2">
-        <Link
-          href="/manager"
-          aria-label="Quay lại danh sách"
-          className="border-hairline hover:bg-surface flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-lg leading-none transition active:scale-95"
-        >
-          ‹
-        </Link>
-        <div className="min-w-0">
-          <h1 className="truncate text-lg font-semibold">
-            {profile?.displayName || profile?.email || "Người dùng"}
-          </h1>
-          <p className="text-muted truncate text-xs">
-            {profile?.email}
-            {profile?.createdAt ? ` · tạo ${dateVN(profile.createdAt)}` : ""}
-            {profile?.lastSeenAt ? ` · vào ${timeAgo(profile.lastSeenAt, now)}` : ""}
-          </p>
-        </div>
-      </header>
+      <PageHeader title="Chi tiết" href="/manager" backLabel="danh sách người dùng" />
+
+      {profile && (
+        <section className="card animate-rise mb-4 flex flex-wrap items-center gap-3 p-4">
+          <UserCard profile={profile} now={now} />
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              href={`/manager/${uid}/sao-ke`}
+              className="border-hairline text-ink-2 hover:bg-expense/8 rounded-lg border px-3 py-2 text-xs font-medium transition active:scale-[0.97]"
+            >
+              Sao kê
+            </Link>
+            <button
+              type="button"
+              onClick={() => setSending(true)}
+              className="bg-brand rounded-lg px-3 py-2 text-xs font-medium text-white transition hover:brightness-110 active:scale-[0.97]"
+            >
+              Gửi thông báo
+            </button>
+          </div>
+        </section>
+      )}
 
       <div className="bg-plane/85 sticky top-0 z-20 -mx-4 mb-4 flex justify-center px-4 py-2 backdrop-blur">
         <MonthPicker month={month} onChange={setMonth} />
@@ -85,50 +90,19 @@ export function UserDetail({ uid }: { uid: string }) {
 
         <MonthlyTrend points={points} currentMonth={month} onSelectMonth={setMonth} />
 
-        <SendNotice uid={uid} />
-
-        {/* Danh sách chỉ để xem: admin không được sửa giao dịch của người khác,
-            rules cũng chặn, nên đừng làm ra nút bấm gợi ý điều không làm được. */}
-        <section className="card animate-rise overflow-hidden p-0">
-          <h2 className="border-hairline border-b px-4 py-3 text-sm font-semibold">
-            Giao dịch trong tháng
-            <span className="text-muted ml-1.5 text-xs font-normal">
-              {monthRows.length} khoản
-            </span>
-          </h2>
-          {monthRows.length === 0 ? (
-            <p className="text-muted px-4 py-8 text-center text-sm">
-              Tháng này chưa có khoản nào
-            </p>
-          ) : (
-            <ul className="divide-hairline max-h-[70dvh] divide-y overflow-y-auto">
-              {monthRows.map((tx) => (
-                <li key={tx.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="bg-plane border-hairline flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-sm">
-                    {iconFor(tx.category)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm">
-                      {tx.note || tx.merchant || tx.category}
-                    </span>
-                    <span className="text-muted block truncate text-xs">
-                      {dayLabel(tx.date)} · {tx.category}
-                    </span>
-                  </span>
-                  <span
-                    className={`shrink-0 text-sm font-semibold tabular-nums ${
-                      tx.type === "income" ? "text-success-text" : "text-danger-text"
-                    }`}
-                  >
-                    {tx.type === "income" ? "+" : "−"}
-                    {formatVND(tx.amount).replace(" ₫", "")}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        {/* Đúng danh sách của trang chủ, chia theo ngày và đóng/mở được — chỉ
+            bỏ onEdit đi, vì admin không sửa được giao dịch của người khác và
+            rules cũng chặn, đừng vẽ ra thứ trông như bấm được. */}
+        <TxList transactions={monthRows} />
       </div>
+
+      {sending && (
+        <SendNotice
+          uid={uid}
+          name={profile?.displayName || profile?.email || "người dùng này"}
+          onClose={() => setSending(false)}
+        />
+      )}
     </div>
   );
 }
