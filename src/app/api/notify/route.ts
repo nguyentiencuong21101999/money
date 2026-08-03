@@ -66,12 +66,28 @@ async function callerEmail(request: Request): Promise<string | null> {
   }
 }
 
-/** Token đã chết — xoá khỏi Firestore luôn, đừng để lần sau gửi vào hư không. */
+/**
+ * Token đã chết — xoá khỏi Firestore luôn, đừng để lần sau gửi vào hư không.
+ *
+ * CỐ TÌNH không có "messaging/invalid-argument" ở đây: mã đó cũng xuất hiện khi
+ * payload sai, nên một lỗi soạn payload sẽ xoá sạch token của mọi người. Thà
+ * giữ lại vài token chết còn hơn tự tay dọn hết người nhận.
+ */
 const DEAD_TOKEN_CODES = new Set([
   "messaging/registration-token-not-registered",
   "messaging/invalid-registration-token",
-  "messaging/invalid-argument",
 ]);
+
+/** Lỗi hạ tầng thì nói thẳng việc cần làm, đừng để người dùng đoán. */
+function explain(code: string, message: string): string {
+  if (code === "messaging/mismatched-credential" || /cloudmessaging/.test(message)) {
+    return "Service account chưa có quyền gửi FCM. Vào Google Cloud Console > IAM, cấp cho firebase-adminsdk-…@ vai trò \"Firebase Cloud Messaging API Admin\" rồi thử lại sau một phút.";
+  }
+  if (code === "messaging/third-party-auth-error") {
+    return "Khoá đẩy của Apple/VAPID không khớp với project. Kiểm tra lại NEXT_PUBLIC_FIREBASE_VAPID_KEY.";
+  }
+  return `${code}: ${message}`;
+}
 
 export async function POST(request: Request) {
   // Bọc tất cả: route handler ném exception thì Next trả 500 với BODY RỖNG, và
@@ -137,6 +153,7 @@ async function send(request: Request) {
   let sent = 0;
   let failed = 0;
   let cleaned = 0;
+  const reasons: string[] = [];
 
   if (tokens.length > 0) {
     const response = await getMessaging().sendEachForMulticast({
@@ -152,8 +169,17 @@ async function send(request: Request) {
 
     await Promise.all(
       response.responses.map(async (result, index) => {
-        const code = result.error?.code;
-        if (result.success || !code || !DEAD_TOKEN_CODES.has(code)) return;
+        const error = result.error;
+        if (result.success || !error) return;
+
+        // In ra Console của server để còn lần được mã gốc, rồi gom lại gửi về
+        // cho người bấm nút: đếm "1 máy không nhận được" mà không nói vì sao
+        // thì không ai sửa được gì.
+        console.error("[notify] token lỗi", error.code, error.message);
+        const reason = explain(error.code, error.message);
+        if (!reasons.includes(reason)) reasons.push(reason);
+
+        if (!DEAD_TOKEN_CODES.has(error.code)) return;
         cleaned += 1;
         await devices.docs[index].ref.delete();
       }),
@@ -162,7 +188,7 @@ async function send(request: Request) {
 
   await notice.update({ sent, failed });
 
-  return NextResponse.json({ id: notice.id, sent, failed, cleaned });
+  return NextResponse.json({ id: notice.id, sent, failed, cleaned, reasons });
 }
 
 function fail(status: number, error: string) {

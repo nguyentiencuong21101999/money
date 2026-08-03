@@ -7,6 +7,8 @@ interface Result {
   sent: number;
   failed: number;
   cleaned: number;
+  /** Lý do từng máy không nhận được, đã gộp trùng. */
+  reasons?: string[];
 }
 
 interface Props {
@@ -132,6 +134,17 @@ export function SendNotice({ uid, name, onClose }: Props) {
                 : ""}
             </p>
           )}
+
+          {/* Máy nào không nhận được thì phải nói vì sao, không thì chỉ biết
+              "thất bại 1 máy" rồi ngồi đoán. */}
+          {result?.reasons?.map((reason) => (
+            <p
+              key={reason}
+              className="border-warning/50 bg-warning/10 text-ink-2 rounded-lg border px-3 py-2 text-xs"
+            >
+              {reason}
+            </p>
+          ))}
 
           <div className="flex gap-2.5 pt-1">
             <button
