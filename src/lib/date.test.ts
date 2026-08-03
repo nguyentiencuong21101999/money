@@ -7,6 +7,7 @@ import {
   monthOf,
   monthYearInVN,
   monthsBetween,
+  dateVN,
   shiftMonth,
   timeAgo,
 } from "./date.ts";
@@ -91,4 +92,10 @@ test("timeAgo in mốc tương đối, quá một tuần thì về dd/MM", () =>
   // Đồng hồ máy chạy chậm hơn máy chủ thì mốc gửi rơi vào tương lai;
   // không được in ra "-1 phút trước".
   assert.equal(timeAgo(now + 60_000, now), "vừa xong");
+});
+
+test("dateVN in ngày đầy đủ theo giờ Việt Nam", () => {
+  assert.equal(dateVN(Date.parse("2026-08-03T10:00:00+07:00")), "03/08/2026");
+  // 17:00 UTC = 00:00 hôm sau ở VN — phải sang ngày mới, và sang cả tháng.
+  assert.equal(dateVN(Date.parse("2026-07-31T17:00:00Z")), "01/08/2026");
 });

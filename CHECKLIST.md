@@ -46,6 +46,16 @@
   2. Dán vào `.env.local`: `NEXT_PUBLIC_FIREBASE_VAPID_KEY=...` (và thêm cả trên Vercel nếu đã deploy)
   3. Chạy lại `npm run dev` → menu người dùng hiện thêm nút **Bật thông báo**
       *(bỏ qua bước này thì app giấu luôn phần thông báo, mọi thứ khác chạy bình thường)*
+- [ ] **B9.** (Không bắt buộc) Bật **gửi thông báo** từ trang `/manager`
+  1. ⚙️ **Project settings** → tab **Service accounts** → **Generate new private key**
+     → tải file JSON về
+  2. Nén nguyên file JSON thành MỘT dòng rồi dán vào `.env.local`:
+     `FIREBASE_SERVICE_ACCOUNT={"type":"service_account",...}`
+  3. Thêm y hệt trên Vercel nếu đã deploy
+      *(khoá này mở được toàn bộ database — không bao giờ đặt tiền tố `NEXT_PUBLIC_`,
+      không commit vào git)*
+  4. Kiểm tra email admin trong `firestore.rules` (hàm `isAdmin()`) đúng chưa,
+     rồi Publish lại
 
 ## C. Chạy thử
 

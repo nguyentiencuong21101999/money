@@ -5,11 +5,25 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Người quản trị — xem được hồ sơ và số liệu của MỌI người ở trang /manager.
+    // Sửa danh sách này thì phải sửa cả NEXT_PUBLIC_ADMIN_EMAILS trong .env.local.
+    // Đây mới là chỗ chặn thật; biến môi trường kia chỉ để ẩn/hiện giao diện.
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in ['cuongnguyen21101999@gmail.com'];
+    }
+
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Admin chỉ ĐỌC hồ sơ người khác, không sửa được.
+      allow read: if isAdmin();
 
       match /transactions/{txId} {
         allow read, delete: if request.auth != null && request.auth.uid == userId;
+        // Trang /manager/{uid} hiện số liệu chi tiêu, nên admin đọc được — nhưng
+        // chỉ đọc, không sửa không xoá giao dịch của người khác.
+        allow read: if isAdmin();
         allow create, update: if request.auth != null
           && request.auth.uid == userId
           && request.resource.data.amount is number

@@ -10,6 +10,7 @@ import {
 } from "react";
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
 import { firebaseConfigured, getFirebaseAuth, googleProvider } from "./firebase";
+import { saveProfile } from "./profile";
 import { disablePush, syncPush } from "./push";
 
 interface AuthState {
@@ -35,7 +36,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Bắt ở đây chứ không ở signIn(): chỗ này chạy cho cả lần bấm đăng nhập
       // lẫn lần mở lại app với phiên cũ, nên token xoay lúc nào cũng được ghi lại.
       // Chạy nền và nuốt lỗi — thông báo hỏng thì cũng không được cản đăng nhập.
-      if (u) void syncPush(u.uid).catch((e) => console.error("[push] sync", e));
+      if (u) {
+        void syncPush(u.uid).catch((e) => console.error("[push] sync", e));
+        // Hồ sơ cho trang quản lý. Cũng chạy nền, hỏng thì thôi.
+        void saveProfile(u).catch((e) => console.error("[profile] save", e));
+      }
     });
   }, []);
 

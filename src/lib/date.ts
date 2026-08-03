@@ -85,6 +85,12 @@ export function dayLabel(dateISO: string): string {
   return `${weekday}, ${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
 }
 
+/** Mốc thời gian tuyệt đối, vd ngày tạo tài khoản: "03/08/2026" theo giờ VN. */
+export function dateVN(at: number): string {
+  const [y, m, d] = isoInVN(new Date(at)).split("-");
+  return `${d}/${m}/${y}`;
+}
+
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
