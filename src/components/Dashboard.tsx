@@ -19,8 +19,9 @@ import { BudgetBar } from "./BudgetBar";
 import { CategoryBars } from "./CategoryBars";
 import { Logo } from "./Logo";
 import { MonthPicker } from "./MonthPicker";
-import { NotificationBell } from "./NotificationBell";
 import { MonthlyTrend } from "./MonthlyTrend";
+import { NotificationBell } from "./NotificationBell";
+import { HEADER_BUTTON } from "./PageHeader";
 import { SummaryPanel } from "./SummaryPanel";
 import { TxList } from "./TxList";
 import { TxSheet } from "./TxSheet";
@@ -118,17 +119,14 @@ export function Dashboard() {
           Sổ tiền
         </h1>
         <div className="flex items-center gap-2">
-          <Link
-            href="/sao-ke"
-            className="border-hairline text-ink-2 hover:bg-surface rounded-lg border px-2.5 py-1.5 text-xs font-medium transition active:scale-[0.97]"
-          >
+          <Link href="/sao-ke" className={HEADER_BUTTON}>
             Sao kê
           </Link>
           <button
             type="button"
             onClick={() => exportMonthCSV(month, transactions)}
             disabled={monthTransactions.length === 0}
-            className="border-hairline text-ink-2 hover:bg-surface rounded-lg border px-2.5 py-1.5 text-xs font-medium transition active:scale-[0.97] disabled:opacity-40"
+            className={HEADER_BUTTON}
           >
             Xuất CSV
           </button>

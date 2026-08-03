@@ -38,7 +38,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={signIn}
-            className="border-hairline hover:border-expense/40 hover:bg-expense/5 mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-medium transition active:scale-[0.98]"
+            className="border-hairline hover:border-expense/40 hover:bg-expense/8 mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-medium transition active:scale-[0.98]"
           >
             <GoogleMark />
             Đăng nhập bằng Google

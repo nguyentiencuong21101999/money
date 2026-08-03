@@ -98,7 +98,7 @@ function Chip({
       className={`rounded-full border px-3 py-1 text-xs font-medium transition active:scale-[0.96] ${
         active
           ? "bg-brand border-transparent text-white"
-          : "border-hairline text-ink-2 hover:bg-plane"
+          : "border-hairline text-ink-2 hover:bg-expense/8"
       }`}
     >
       {children}

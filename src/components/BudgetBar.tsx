@@ -56,7 +56,7 @@ export function BudgetBar({ uid, month, limit, spent }: Props) {
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="text-muted hover:text-ink shrink-0 rounded-lg px-2 text-sm"
+            className="text-muted hover:text-ink shrink-0 rounded-lg px-2 text-sm transition"
           >
             Huỷ
           </button>
