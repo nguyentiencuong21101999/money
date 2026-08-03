@@ -8,6 +8,7 @@ import {
   monthYearInVN,
   monthsBetween,
   shiftMonth,
+  timeAgo,
 } from "./date.ts";
 
 test("ngày luôn tính theo giờ Việt Nam, không theo giờ máy", () => {
@@ -69,4 +70,25 @@ test("monthsBetween liệt kê đủ khoảng tháng cho sao kê", () => {
 test("dayLabel ra đúng thứ trong tuần", () => {
   assert.equal(dayLabel("2026-07-30"), "Thứ 5, 30/07");
   assert.equal(dayLabel("2026-08-02"), "Chủ nhật, 02/08");
+});
+
+test("timeAgo in mốc tương đối, quá một tuần thì về dd/MM", () => {
+  const now = Date.parse("2026-08-03T10:00:00+07:00");
+  const ago = (ms: number) => timeAgo(now - ms, now);
+
+  assert.equal(ago(0), "vừa xong");
+  assert.equal(ago(59_000), "vừa xong");
+  assert.equal(ago(60_000), "1 phút trước");
+  assert.equal(ago(59 * 60_000), "59 phút trước");
+  assert.equal(ago(60 * 60_000), "1 giờ trước");
+  assert.equal(ago(23 * 3600_000), "23 giờ trước");
+  assert.equal(ago(24 * 3600_000), "1 ngày trước");
+  assert.equal(ago(6 * 24 * 3600_000), "6 ngày trước");
+
+  // Đúng 7 ngày là chuyển sang ngày tháng — 27/07 theo giờ Việt Nam.
+  assert.equal(ago(7 * 24 * 3600_000), "27/07");
+
+  // Đồng hồ máy chạy chậm hơn máy chủ thì mốc gửi rơi vào tương lai;
+  // không được in ra "-1 phút trước".
+  assert.equal(timeAgo(now + 60_000, now), "vừa xong");
 });

@@ -85,6 +85,27 @@ export function dayLabel(dateISO: string): string {
   return `${weekday}, ${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
 }
 
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+/**
+ * Mốc thời gian tương đối cho danh sách thông báo: "vừa xong", "5 phút trước",
+ * "3 giờ trước", "2 ngày trước", quá một tuần thì in thẳng "30/07".
+ * Nhận `now` từ bên ngoài thay vì gọi Date.now() bên trong để test được.
+ */
+export function timeAgo(at: number, now: number): string {
+  const diff = Math.max(0, now - at);
+  if (diff < MINUTE) return "vừa xong";
+  if (diff < HOUR) return `${Math.floor(diff / MINUTE)} phút trước`;
+  if (diff < DAY) return `${Math.floor(diff / HOUR)} giờ trước`;
+  if (diff < 7 * DAY) return `${Math.floor(diff / DAY)} ngày trước`;
+
+  // Vẫn quy về giờ Việt Nam như mọi chỗ khác, rồi đảo thành dd/MM.
+  const [, month, day] = isoInVN(new Date(at)).split("-");
+  return `${day}/${month}`;
+}
+
 /** Ngày AI đọc được có hợp lệ không — chặn dữ liệu rác trước khi ghi vào Firestore. */
 export function isValidISODate(value: string | null | undefined): value is string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;

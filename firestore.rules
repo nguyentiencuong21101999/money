@@ -32,6 +32,16 @@ service cloud.firestore {
           && request.resource.data.token is string;
       }
 
+      // Thông báo do máy chủ ghi (Admin SDK bỏ qua rules), phía trình duyệt chỉ
+      // được đọc và đánh dấu đã đọc — không được tự tạo hay xoá thông báo.
+      match /notifications/{notiId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow update: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
+          && request.resource.data.isRead is bool;
+      }
+
       match /budgets/{month} {
         allow read, delete: if request.auth != null && request.auth.uid == userId;
         allow create, update: if request.auth != null
