@@ -1,3 +1,5 @@
+// Kèm đuôi .ts vì csv.test.ts chạy thẳng bằng node, không qua bundler.
+import { byOldestFirst } from "./order.ts";
 import type { Transaction } from "./types";
 
 const HEADERS = [
@@ -33,7 +35,7 @@ export function buildCSV(months: string[], transactions: Transaction[]): string 
   const wanted = new Set(months);
   const rows = transactions
     .filter((tx) => wanted.has(tx.month))
-    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+    .sort(byOldestFirst);
 
   const body = rows.map((tx) => [
     tx.month,

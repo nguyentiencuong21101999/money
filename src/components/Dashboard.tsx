@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { imageFromTransfer } from "@/lib/clipboard";
 import { exportMonthCSV } from "@/lib/csv";
 import { currentMonth, lastNMonths, monthOf, shiftMonth, todayISO } from "@/lib/date";
+import { nextOrder } from "@/lib/order";
 import {
   describeScanError,
   scanReceipt,
@@ -200,6 +201,7 @@ export function Dashboard() {
           editing={sheet.mode === "edit" ? sheet.tx : undefined}
           prefill={sheet.mode === "add" ? sheet.prefill : undefined}
           defaultDate={defaultDate}
+          nextOrder={(date) => nextOrder(transactions, date)}
           onClose={() => setSheet({ mode: "closed" })}
         />
       )}

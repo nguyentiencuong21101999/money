@@ -23,10 +23,19 @@ interface Props {
   defaultDate?: string;
   /** Ảnh dán ở dashboard đã quét xong — dùng làm giá trị khởi tạo cho form. */
   prefill?: ScannedReceipt;
+  /** Thứ tự gợi ý cho khoản mới trong một ngày — tính theo dữ liệu đang tải. */
+  nextOrder?: (date: string) => number;
   onClose: () => void;
 }
 
-export function TxSheet({ uid, editing, defaultDate, prefill, onClose }: Props) {
+export function TxSheet({
+  uid,
+  editing,
+  defaultDate,
+  prefill,
+  nextOrder,
+  onClose,
+}: Props) {
   // Chỉ dùng cho giá trị khởi tạo, nên tính một lần lúc mount là đủ.
   const [seed] = useState(() => (prefill ? draftFromScan(prefill) : null));
 
@@ -42,6 +51,9 @@ export function TxSheet({ uid, editing, defaultDate, prefill, onClose }: Props) 
     editing?.date ?? seed?.date ?? defaultDate ?? todayISO(),
   );
   const [merchant, setMerchant] = useState(editing?.merchant ?? seed?.merchant ?? "");
+  const [orderText, setOrderText] = useState(
+    editing?.order != null ? String(editing.order) : "",
+  );
   const [thumbnail, setThumbnail] = useState(editing?.thumbnail ?? seed?.thumbnail);
   const [source, setSource] = useState<"manual" | "ocr">(
     editing?.source ?? (seed ? "ocr" : "manual"),
@@ -53,6 +65,11 @@ export function TxSheet({ uid, editing, defaultDate, prefill, onClose }: Props) 
 
   const amount = parseAmount(amountText);
   const options = categoriesFor(type);
+  // Ô thứ tự để trống thì xếp xuống cuối ngày đang chọn (khoản cũ giữ số cũ).
+  const typedOrder = Number.parseInt(orderText.trim(), 10);
+  const order = Number.isFinite(typedOrder)
+    ? typedOrder
+    : (editing?.order ?? nextOrder?.(date));
 
   /** Đổi Thu/Chi thì danh mục cũ có thể không còn hợp lệ — đổi luôn tại đây. */
   function switchType(next: TxType) {
@@ -105,6 +122,7 @@ export function TxSheet({ uid, editing, defaultDate, prefill, onClose }: Props) 
       source,
       merchant: merchant.trim() || undefined,
       thumbnail,
+      order,
     };
     try {
       if (editing) await updateTransaction(uid, editing.id, draft);
@@ -240,17 +258,33 @@ export function TxSheet({ uid, editing, defaultDate, prefill, onClose }: Props) 
             <DateSelect label="Ngày" value={date} onChange={setDate} />
           </div>
 
-          <label className="block">
-            <span className="text-ink-2 text-xs font-medium">
-              Nơi thanh toán <span className="text-muted font-normal">(không bắt buộc)</span>
-            </span>
-            <input
-              value={merchant}
-              onChange={(e) => setMerchant(e.target.value)}
-              placeholder="vd: Circle K"
-              className="field mt-1"
-            />
-          </label>
+          <div className="grid grid-cols-[1fr_5.5rem] gap-3">
+            <label className="block min-w-0">
+              <span className="text-ink-2 text-xs font-medium">
+                Nơi thanh toán{" "}
+                <span className="text-muted font-normal">(không bắt buộc)</span>
+              </span>
+              <input
+                value={merchant}
+                onChange={(e) => setMerchant(e.target.value)}
+                placeholder="vd: Circle K"
+                className="field mt-1"
+              />
+            </label>
+            <label className="block">
+              <span className="text-ink-2 text-xs font-medium">Thứ tự</span>
+              <input
+                inputMode="numeric"
+                value={orderText}
+                onChange={(e) => setOrderText(e.target.value)}
+                placeholder={order != null ? String(order) : "1"}
+                className="field mt-1 tabular-nums"
+              />
+            </label>
+          </div>
+          <p className="text-muted -mt-1.5 text-xs">
+            Thứ tự trong ngày — số nhỏ nằm trên. Để trống thì tự xếp xuống cuối ngày.
+          </p>
 
           {error && <p className="text-critical text-sm">{error}</p>}
 
