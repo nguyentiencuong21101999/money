@@ -39,6 +39,13 @@
 - [x] **B7.** Dán **security rules**
   1. Firebase Console → **Firestore Database** → tab **Rules**
   2. Xoá hết, dán toàn bộ nội dung file `firestore.rules` trong dự án → **Publish**
+      *(mỗi lần sửa file `firestore.rules` trong dự án là phải dán lại và Publish lần nữa)*
+- [ ] **B8.** (Không bắt buộc) Bật **thông báo đẩy**
+  1. ⚙️ **Project settings** → tab **Cloud Messaging** → mục **Web Push certificates**
+     → **Generate key pair** → copy chuỗi vừa hiện ra
+  2. Dán vào `.env.local`: `NEXT_PUBLIC_FIREBASE_VAPID_KEY=...` (và thêm cả trên Vercel nếu đã deploy)
+  3. Chạy lại `npm run dev` → menu người dùng hiện thêm nút **Bật thông báo**
+      *(bỏ qua bước này thì app giấu luôn phần thông báo, mọi thứ khác chạy bình thường)*
 
 ## C. Chạy thử
 

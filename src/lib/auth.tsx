@@ -10,6 +10,7 @@ import {
 } from "react";
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
 import { firebaseConfigured, getFirebaseAuth, googleProvider } from "./firebase";
+import { disablePush, syncPush } from "./push";
 
 interface AuthState {
   user: User | null;
@@ -31,6 +32,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return onAuthStateChanged(getFirebaseAuth(), (u) => {
       setUser(u);
       setLoading(false);
+      // Bắt ở đây chứ không ở signIn(): chỗ này chạy cho cả lần bấm đăng nhập
+      // lẫn lần mở lại app với phiên cũ, nên token xoay lúc nào cũng được ghi lại.
+      // Chạy nền và nuốt lỗi — thông báo hỏng thì cũng không được cản đăng nhập.
+      if (u) void syncPush(u.uid).catch((e) => console.error("[push] sync", e));
     });
   }, []);
 
@@ -42,12 +47,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async signIn() {
         setError(null);
         try {
+          // Token thông báo do onAuthStateChanged ở trên lo, không gọi lại ở đây.
           await signInWithPopup(getFirebaseAuth(), googleProvider);
         } catch (e) {
           setError(describeAuthError(e));
         }
       },
       async signOutUser() {
+        // Xoá token TRƯỚC khi đăng xuất, xong rồi thì rules không cho ghi nữa.
+        // Hỏng cũng vẫn phải đăng xuất được — không ai chịu cảnh kẹt lại trong app.
+        if (user) {
+          try {
+            await disablePush(user.uid);
+          } catch (e) {
+            console.error("[push] disable", e);
+          }
+        }
         await signOut(getFirebaseAuth());
       },
     }),

@@ -22,6 +22,16 @@ service cloud.firestore {
               || request.resource.data.thumbnail.size() < 400000);
       }
 
+      // Token nhận thông báo đẩy, mỗi máy một doc, id chính là token.
+      // Subcollection KHÔNG tự thừa kế rule của /users/{userId} ở trên nên
+      // thiếu block này là mọi thao tác ghi token đều bị từ chối.
+      match /devices/{deviceId} {
+        allow read, delete: if request.auth != null && request.auth.uid == userId;
+        allow create, update: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.token is string;
+      }
+
       match /budgets/{month} {
         allow read, delete: if request.auth != null && request.auth.uid == userId;
         allow create, update: if request.auth != null

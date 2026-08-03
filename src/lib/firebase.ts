@@ -20,6 +20,11 @@ function app() {
   return getApps().length ? getApp() : initializeApp(options);
 }
 
+/** Cho các module cần chính đối tượng app, vd getMessaging() ở lib/push.ts. */
+export function getFirebaseApp() {
+  return app();
+}
+
 let cachedAuth: Auth | null = null;
 let cachedDb: Firestore | null = null;
 

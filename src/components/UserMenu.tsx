@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import { monthYearInVN } from "@/lib/date";
 import { useRevealOnOpen } from "@/lib/reveal";
+import { PushToggle } from "./PushToggle";
 
 interface Props {
   user: User;
@@ -80,6 +81,8 @@ export function UserMenu({ user, onSignOut }: Props) {
               <dd className="text-ink-2">{joinedAt(user)}</dd>
             </div>
           </dl>
+
+          <PushToggle uid={user.uid} />
 
           <button
             type="button"
