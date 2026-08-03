@@ -9,6 +9,7 @@ import {
   dayLabel,
   MAX_MONTHS_PER_QUERY,
   monthLabel,
+  monthNumeric,
   monthsBetween,
 } from "@/lib/date";
 import { formatVND } from "@/lib/money";
@@ -117,7 +118,10 @@ export function Statement({ uid: otherUid, ownerName }: Props = {}) {
             {total.income - total.expense < 0 ? "−" : ""}
             {formatVND(Math.abs(total.income - total.expense))}
           </p>
-          <div className="border-hairline mt-5 grid grid-cols-3 gap-3 border-t pt-4">
+          {/* Điện thoại: hai ô tiền chia đôi hàng trên, số giao dịch xuống hàng
+              dưới. Ba cột trên màn hẹp thì mỗi ô chỉ còn ~33% và số tiền bị cắt
+              còn "+37.883.9…". Từ sm trở lên đủ chỗ nên về lại ba cột. */}
+          <div className="border-hairline mt-5 grid grid-cols-2 gap-3 border-t pt-4 sm:grid-cols-3">
             <Figure
               label="Tiền vào"
               value={`+${formatVND(total.income)}`}
@@ -130,7 +134,11 @@ export function Statement({ uid: otherUid, ownerName }: Props = {}) {
               dot="bg-expense"
               tone="text-danger-text"
             />
-            <Figure label="Số giao dịch" value={String(total.count)} />
+            <Figure
+              label="Số giao dịch"
+              value={String(total.count)}
+              className="col-span-2 sm:col-span-1"
+            />
           </div>
         </section>
 
@@ -152,15 +160,17 @@ export function Statement({ uid: otherUid, ownerName }: Props = {}) {
                 <tbody>
                   {perMonth.map((m) => (
                     <tr key={m.month} className="border-hairline border-t">
-                      <td className="py-2 pl-1 whitespace-nowrap">{monthLabel(m.month)}</td>
-                      <td className="text-ink-2 py-2 text-right tabular-nums">
+                      <td className="py-2 pl-1 whitespace-nowrap tabular-nums">
+                        {monthNumeric(m.month)}
+                      </td>
+                      <td className="text-ink-2 py-2 text-right whitespace-nowrap tabular-nums">
                         {m.income ? formatVND(m.income) : "—"}
                       </td>
-                      <td className="text-ink-2 py-2 text-right tabular-nums">
+                      <td className="text-ink-2 py-2 text-right whitespace-nowrap tabular-nums">
                         {m.expense ? formatVND(m.expense) : "—"}
                       </td>
                       <td
-                        className={`py-2 pr-1 text-right font-medium tabular-nums ${
+                        className={`py-2 pr-1 text-right whitespace-nowrap tabular-nums font-medium ${
                           m.balance < 0 ? "text-danger-text" : "text-success-text"
                         }`}
                       >
@@ -224,14 +234,16 @@ function Figure({
   value,
   dot,
   tone,
+  className,
 }: {
   label: string;
   value: string;
   dot?: string;
   tone?: string;
+  className?: string;
 }) {
   return (
-    <div className="min-w-0">
+    <div className={`min-w-0 ${className ?? ""}`}>
       <span className="flex items-center gap-1.5">
         {dot && <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />}
         <span className="text-ink-2 truncate text-xs font-medium">{label}</span>

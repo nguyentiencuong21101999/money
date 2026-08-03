@@ -8,6 +8,7 @@ import {
   monthYearInVN,
   monthsBetween,
   dateVN,
+  monthNumeric,
   shiftMonth,
   timeAgo,
 } from "./date.ts";
@@ -98,4 +99,11 @@ test("dateVN in ngày đầy đủ theo giờ Việt Nam", () => {
   assert.equal(dateVN(Date.parse("2026-08-03T10:00:00+07:00")), "03/08/2026");
   // 17:00 UTC = 00:00 hôm sau ở VN — phải sang ngày mới, và sang cả tháng.
   assert.equal(dateVN(Date.parse("2026-07-31T17:00:00Z")), "01/08/2026");
+});
+
+test("monthNumeric bỏ chữ Tháng, giữ đúng số", () => {
+  assert.equal(monthNumeric("2026-08"), "8/2026");
+  assert.equal(monthNumeric("2026-12"), "12/2026");
+  // Bỏ số 0 đứng đầu: "01" phải ra "1", không phải "01".
+  assert.equal(monthNumeric("2027-01"), "1/2027");
 });

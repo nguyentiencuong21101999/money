@@ -71,6 +71,15 @@ export function monthLabel(month: string): string {
   return `Tháng ${Number(m)}/${y}`;
 }
 
+/**
+ * "2026-07" → "7/2026". Cho bảng chật: cột đã có tiêu đề "Tháng" nên lặp lại
+ * chữ đó ở từng hàng chỉ ăn chỗ của mấy con số bên phải.
+ */
+export function monthNumeric(month: string): string {
+  const [y, m] = month.split("-");
+  return `${Number(m)}/${y}`;
+}
+
 /** "2026-07" → "T7" (nhãn trục biểu đồ) */
 export function monthShort(month: string): string {
   return `T${Number(month.split("-")[1])}`;
