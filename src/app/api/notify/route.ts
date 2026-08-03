@@ -74,6 +74,26 @@ const DEAD_TOKEN_CODES = new Set([
 ]);
 
 export async function POST(request: Request) {
+  // Bọc tất cả: route handler ném exception thì Next trả 500 với BODY RỖNG, và
+  // phía trình duyệt chỉ thấy "Unexpected end of JSON input" — không nói được
+  // hỏng ở đâu. Thà trả về nguyên văn lỗi của Google.
+  try {
+    return await send(request);
+  } catch (e) {
+    console.error("[notify]", e);
+    const code = (e as { code?: number | string })?.code;
+    const message = e instanceof Error ? e.message : String(e);
+    if (code === 7 || /insufficient permissions/i.test(message)) {
+      return fail(
+        503,
+        "Service account chưa có quyền Firestore. Vào Google Cloud Console > IAM, cấp cho firebase-adminsdk-…@ vai trò \"Cloud Datastore User\" rồi thử lại sau một phút.",
+      );
+    }
+    return fail(500, `Gửi thất bại: ${message}`);
+  }
+}
+
+async function send(request: Request) {
   const email = await callerEmail(request);
   if (!email) return fail(401, "Cần đăng nhập.");
   if (!isAdminEmail(email)) return fail(403, "Tài khoản này không được gửi thông báo.");
