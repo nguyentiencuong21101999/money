@@ -19,6 +19,7 @@ import { BudgetBar } from "./BudgetBar";
 import { CategoryBars } from "./CategoryBars";
 import { Logo } from "./Logo";
 import { MonthPicker } from "./MonthPicker";
+import { NotificationBell } from "./NotificationBell";
 import { MonthlyTrend } from "./MonthlyTrend";
 import { SummaryPanel } from "./SummaryPanel";
 import { TxList } from "./TxList";
@@ -131,6 +132,7 @@ export function Dashboard() {
           >
             Xuất CSV
           </button>
+          <NotificationBell uid={uid} />
           <UserMenu user={user!} onSignOut={signOutUser} />
         </div>
       </header>
