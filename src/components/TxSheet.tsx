@@ -62,9 +62,11 @@ export function TxSheet({
 
   const amount = parseAmount(amountText);
   const options = categoriesFor(type);
-  // Thứ tự trong ngày chạy ngầm, không hiện ra form: khoản mới xuống cuối ngày
-  // đang chọn, khoản cũ giữ nguyên số đã có.
-  const order = editing?.order ?? nextOrder?.(date);
+  // Thứ tự trong ngày chạy ngầm, không hiện ra form. Chỉ khoản THÊM MỚI mới
+  // nhận số, và nhận số lớn nhất nên nằm đầu ngày. Sửa khoản cũ thì giữ nguyên
+  // đúng thứ tự nó đang có — kể cả khi nó chưa có (undefined thì không ghi field
+  // này, Firestore để nguyên giá trị cũ) — không thì cứ sửa là nó nhảy lên đầu.
+  const order = editing ? editing.order : nextOrder?.(date);
 
   /** Đổi Thu/Chi thì danh mục cũ có thể không còn hợp lệ — đổi luôn tại đây. */
   function switchType(next: TxType) {
@@ -165,7 +167,7 @@ export function TxSheet({
             type="button"
             onClick={onClose}
             aria-label="Đóng"
-            className="text-muted hover:bg-plane hover:text-ink -mr-1 flex h-8 w-8 items-center justify-center rounded-lg text-xl leading-none active:scale-90"
+            className="text-muted hover:bg-expense/8 hover:text-ink -mr-1 flex h-8 w-8 items-center justify-center rounded-lg text-xl leading-none active:scale-90"
           >
             ×
           </button>
@@ -282,7 +284,7 @@ export function TxSheet({
                 type="button"
                 onClick={remove}
                 disabled={saving}
-                className="text-critical border-critical/30 hover:bg-critical/[0.07] rounded-xl border px-4 py-2.5 text-sm font-medium disabled:opacity-50"
+                className="text-critical border-critical/30 hover:bg-critical/[0.07] rounded-xl border px-4 py-2.5 text-sm font-medium transition disabled:opacity-50"
               >
                 Xoá
               </button>
@@ -327,7 +329,7 @@ function TypeTab({
       onClick={onClick}
       aria-pressed={active}
       className={`rounded-lg py-2 text-sm font-medium transition-colors duration-200 ease-out ${
-        active ? activeClass : "text-muted hover:bg-plane hover:text-ink-2 bg-transparent"
+        active ? activeClass : "text-muted hover:bg-expense/8 hover:text-ink-2 bg-transparent"
       }`}
     >
       {children}

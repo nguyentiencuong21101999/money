@@ -14,7 +14,7 @@ export interface Transaction {
   /** YYYY-MM — nhân bản từ `date` để query 1 tháng không cần composite index */
   month: string;
   source: "manual" | "ocr";
-  /** thứ tự trong ngày, số nhỏ nằm trên — để xếp đúng như trên sao kê */
+  /** thứ tự trong ngày, số LỚN nằm trên — khoản mới thêm hiện ngay đầu ngày */
   order?: number;
   /** tên cửa hàng / nơi thanh toán, do AI đọc từ ảnh */
   merchant?: string;
