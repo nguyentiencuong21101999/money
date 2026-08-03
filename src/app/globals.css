@@ -322,6 +322,25 @@ input[type="number"]::-webkit-outer-spin-button {
   opacity: 1;
 }
 
+/*
+  Trên máy cảm ứng, ô nhập PHẢI từ 16px trở lên.
+  Safari trên iOS tự phóng to cả trang mỗi khi focus vào ô có chữ nhỏ hơn 16px —
+  hành vi cố định của hệ, không tắt được bằng CSS. Cách chặn khác là đặt
+  maximum-scale=1 trong thẻ viewport, nhưng như vậy là khoá luôn thao tác chụm
+  hai ngón để phóng to của người dùng, không đánh đổi.
+  Dùng (pointer: coarse) chứ không phải max-width: iPad màn to vẫn là cảm ứng,
+  còn màn hình máy tính hẹp thì không bị phóng nên cứ để 14px cho gọn.
+*/
+@media (hover: none) and (pointer: coarse) {
+  .field {
+    font-size: 1rem;
+  }
+
+  .field::placeholder {
+    font-size: 0.875rem;
+  }
+}
+
 .field:focus {
   border-color: var(--color-expense);
   box-shadow: 0 0 0 3px rgba(214, 51, 108, 0.16);

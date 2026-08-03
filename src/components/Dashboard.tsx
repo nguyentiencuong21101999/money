@@ -114,11 +114,14 @@ export function Dashboard() {
           z-40 của dropdown trong UserMenu sẽ bị nhốt bên trong và tụt xuống dưới
           thanh chọn tháng (z-20). Đặt z cho chính header để cả khối nổi lên trên. */}
       <header className="animate-fade relative z-30 mb-4 flex items-center justify-between gap-3">
-        <h1 className="flex items-center gap-2 text-lg font-semibold">
+        {/* Co được (min-w-0 + truncate) chứ không shrink-0: máy 320px thì chữ
+            cắt bớt một chút, còn hơn gãy hai dòng hay đẩy cả trang tràn ngang. */}
+        <h1 className="flex min-w-0 items-center gap-2 text-lg font-semibold">
           <Logo size={26} />
-          Sổ tiền
+          <span className="truncate">Sổ tiền</span>
         </h1>
-        <div className="flex items-center gap-2">
+        {/* `relative` ở đây là mốc neo cho hộp thư của chuông — xem NotificationBell. */}
+        <div className="relative flex shrink-0 items-center gap-2">
           <Link href="/sao-ke" className={HEADER_BUTTON}>
             Sao kê
           </Link>
@@ -128,7 +131,8 @@ export function Dashboard() {
             disabled={monthTransactions.length === 0}
             className={HEADER_BUTTON}
           >
-            Xuất CSV
+            <span className="sm:hidden">CSV</span>
+            <span className="hidden sm:inline">Xuất CSV</span>
           </button>
           <NotificationBell uid={uid} />
           <UserMenu user={user!} onSignOut={signOutUser} />

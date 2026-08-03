@@ -48,7 +48,11 @@ export function NotificationBell({ uid }: { uid: string }) {
 
 
   return (
-    <div className="relative" ref={root}>
+    // KHÔNG đặt `relative` ở đây: panel rộng 336px mà neo vào riêng cái chuông
+    // thì trên điện thoại rìa trái lọt khỏi màn hình, vì chuông còn cách mép
+    // phải một khoảng bằng cái avatar. Neo vào cả hàng nút (thẻ `relative` bọc
+    // ngoài trong header) thì rìa phải panel trùng mép phải trang, luôn vừa.
+    <div ref={root}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -75,7 +79,7 @@ export function NotificationBell({ uid }: { uid: string }) {
         <div
           ref={panel}
           role="menu"
-          className="card animate-drop border-expense/25 absolute right-0 z-40 mt-2 w-[min(21rem,calc(100vw-2rem))] origin-top-right overflow-hidden p-0 shadow-lg"
+          className="card animate-drop border-expense/25 absolute top-full right-0 z-40 mt-2 w-[min(21rem,calc(100vw-2rem))] origin-top-right overflow-hidden p-0 shadow-lg"
         >
           <div className="flex items-center justify-between gap-3 px-4 py-3">
             <p className="text-sm font-semibold">

@@ -3,22 +3,37 @@
 import { dateVN, timeAgo } from "@/lib/date";
 import type { UserProfile } from "@/lib/profile";
 
+interface Props {
+  profile: UserProfile;
+  now: number;
+  /**
+   * Điện thoại thì xếp ảnh lên trên, chữ xuống dưới. Dùng ở thẻ có thêm nút bấm
+   * bên cạnh: nằm ngang thì chữ bị bóp còn "nguyen cu…", "cuongnguye…", đọc
+   * không ra ai. Danh sách không có nút nên cứ để nằm ngang cho gọn hàng.
+   */
+  stack?: boolean;
+}
+
 /** Ảnh + tên + email + ngày tạo — dùng chung cho danh sách và trang chi tiết. */
-export function UserCard({ profile, now }: { profile: UserProfile; now: number }) {
+export function UserCard({ profile, now, stack }: Props) {
   return (
-    <>
+    <div
+      className={`flex min-w-0 flex-1 ${
+        stack ? "flex-col gap-2 sm:flex-row sm:items-center sm:gap-3" : "items-center gap-3"
+      }`}
+    >
       <UserAvatar profile={profile} />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">
           {profile.displayName || "(chưa đặt tên)"}
-        </span>
-        <span className="text-muted block truncate text-xs">{profile.email}</span>
-        <span className="text-muted mt-0.5 block truncate text-xs">
+        </p>
+        <p className="text-muted truncate text-xs">{profile.email}</p>
+        <p className="text-muted mt-0.5 truncate text-xs">
           Tạo {profile.createdAt ? dateVN(profile.createdAt) : "—"}
           {profile.lastSeenAt ? ` · vào ${timeAgo(profile.lastSeenAt, now)}` : ""}
-        </span>
-      </span>
-    </>
+        </p>
+      </div>
+    </div>
   );
 }
 
