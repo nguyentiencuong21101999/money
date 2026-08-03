@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { imageFromTransfer } from "@/lib/clipboard";
 import { describeScanError, scanReceipt, type ScannedReceipt } from "@/lib/scan";
+import { PhotoView } from "./PhotoView";
 
 interface Props {
   onScanned: (scanned: ScannedReceipt) => void;
@@ -18,6 +19,7 @@ export function UploadScan({ onScanned, thumbnail, onRemove }: Props) {
   const [working, setWorking] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewing, setViewing] = useState(false);
 
   async function scan(file: File | null | undefined) {
     if (!file || working) return;
@@ -82,15 +84,30 @@ export function UploadScan({ onScanned, thumbnail, onRemove }: Props) {
               : "border-expense/35 bg-expense/6 border-dashed"
           }`}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={thumbnail}
-            alt="Ảnh hoá đơn đã đính kèm"
-            className="border-hairline h-16 w-16 shrink-0 rounded-lg border object-cover"
-          />
+          {/* Ảnh nhỏ 64px chỉ đủ nhận ra là hoá đơn nào — bấm vào là mở to ra xem. */}
+          <button
+            type="button"
+            onClick={() => setViewing(true)}
+            aria-label="Xem ảnh to"
+            className="border-hairline hover:border-expense shrink-0 cursor-zoom-in overflow-hidden rounded-lg border transition active:scale-95"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={thumbnail}
+              alt="Ảnh hoá đơn đã đính kèm"
+              className="block h-16 w-16 object-cover"
+            />
+          </button>
           <div className="min-w-0 flex-1">
             <p className="text-expense text-sm font-medium">Đã đính kèm ảnh hoá đơn</p>
-            <div className="mt-1.5 flex gap-3">
+            <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+              <button
+                type="button"
+                onClick={() => setViewing(true)}
+                className="text-expense hover:text-brand text-xs font-medium underline underline-offset-2"
+              >
+                🔍 Xem ảnh
+              </button>
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
@@ -150,6 +167,10 @@ export function UploadScan({ onScanned, thumbnail, onRemove }: Props) {
         </button>
       )}
       {error && <p className="text-critical mt-2.5 text-sm">{error}</p>}
+
+      {viewing && thumbnail && (
+        <PhotoView src={thumbnail} onClose={() => setViewing(false)} />
+      )}
     </div>
   );
 }

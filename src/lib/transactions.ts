@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 import { getDb } from "./firebase";
 import { monthOf } from "./date";
+import { byNewestFirst } from "./order";
 import type { Transaction } from "./types";
 
 export type TransactionDraft = Omit<Transaction, "id" | "month" | "createdAt">;
@@ -93,7 +94,7 @@ export function useTransactions(
       query(txCollection(uid), where("month", "in", list)),
       (snap) => {
         const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Transaction);
-        rows.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+        rows.sort(byNewestFirst);
         if (process.env.NODE_ENV === "development") {
           console.info(
             `[firestore] nhận ${rows.length} giao dịch cho ${list.join(", ")}`,

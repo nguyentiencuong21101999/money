@@ -13,6 +13,7 @@ import {
   monthsBetween,
 } from "@/lib/date";
 import { formatVND } from "@/lib/money";
+import { byNewestFirst } from "@/lib/order";
 import { byCategoryOf, summarize } from "@/lib/stats";
 import { useTransactions } from "@/lib/transactions";
 import type { Transaction } from "@/lib/types";
@@ -38,7 +39,7 @@ export function Statement() {
   const { data: transactions, loading, error } = useTransactions(uid, months);
 
   const rows = useMemo(
-    () => [...transactions].sort((a, b) => b.date.localeCompare(a.date)),
+    () => [...transactions].sort(byNewestFirst),
     [transactions],
   );
   const perMonth = useMemo(
