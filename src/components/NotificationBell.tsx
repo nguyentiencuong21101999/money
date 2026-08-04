@@ -108,8 +108,12 @@ export function NotificationBell({ uid }: { uid: string }) {
               Chưa có thông báo nào
             </p>
           ) : (
-            // Trần chiều cao rồi cuộn bên trong, để hộp thư không dài quá màn hình.
-            <ul className="border-hairline max-h-[60dvh] divide-hairline divide-y overflow-y-auto border-t">
+            /* 25rem là đúng 5 dòng: dòng có ghi chú hai hàng cao 79px, đo bằng
+               chính markup này. Vẫn nạp 10 cái gần nhất rồi cuộn bên trong, chỉ
+               là không thả cả 10 xuống thành một dải dài lê thê. Còn `60dvh` để
+               trên máy màn ngắn (hoặc khi để ngang) hộp thư co theo màn hình chứ
+               không tràn ra ngoài. */
+            <ul className="border-hairline max-h-[min(25rem,60dvh)] divide-hairline divide-y overflow-y-auto border-t">
               {items.map((item) => (
                 <NotificationRow key={item.id} item={item} onOpen={openItem} now={now} />
               ))}
