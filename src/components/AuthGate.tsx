@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { firebaseConfigured } from "@/lib/firebase";
+import { Loading } from "./Loading";
 import { Logo } from "./Logo";
 
 export function AuthGate({ children }: { children: ReactNode }) {
@@ -10,17 +11,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (!firebaseConfigured) return <SetupNotice />;
 
-  if (loading) {
-    return (
-      <Centered>
-        {/* Chỉ icon thở nhẹ — F5 xong thấy ngay nhận diện quen thuộc,
-            không phải một câu thông báo kỹ thuật. */}
-        <span role="status" aria-label="Đang tải" className="animate-breathe">
-          <Logo size={64} />
-        </span>
-      </Centered>
-    );
-  }
+  // Chỉ icon thở nhẹ — F5 xong thấy ngay nhận diện quen thuộc, không phải một
+  // câu thông báo kỹ thuật. Cũng đúng hình mà lượt chờ dữ liệu ngay sau đó dùng.
+  if (loading) return <Loading full label="Đang đăng nhập" />;
 
   if (!user) {
     return (

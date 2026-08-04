@@ -70,6 +70,13 @@ const NO_TRANSACTIONS: Loadable<Transaction[]> = {
 const NO_BUDGET: Loadable<number | null> = { data: null, loading: false, error: null };
 
 /**
+ * Mất mạng mà cache trên đĩa cũng chưa có gì thì snapshot "đã chốt" không bao
+ * giờ tới. Chờ tới đây thì thôi, hiện trang rỗng vẫn hơn là để người ta ngắm
+ * icon thở mãi không dứt.
+ */
+const GIVE_UP_MS = 8_000;
+
+/**
  * Nghe realtime toàn bộ giao dịch của các tháng cho trước bằng MỘT listener.
  * Chỉ lọc trên `month` (một field) nên Firestore không đòi composite index;
  * việc sắp xếp làm ở client. Firestore giới hạn toán tử `in` ở 30 giá trị.
@@ -90,7 +97,12 @@ export function useTransactions(
     const list = key.split(",").filter(Boolean).slice(0, 30);
     if (list.length === 0) return;
 
-    return onSnapshot(
+    const giveUp = setTimeout(
+      () => setState((s) => ({ ...s, loading: false })),
+      GIVE_UP_MS,
+    );
+
+    const stop = onSnapshot(
       query(txCollection(uid), where("month", "in", list)),
       (snap) => {
         const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Transaction);
@@ -101,10 +113,31 @@ export function useTransactions(
             rows.map((r) => `${r.month} ${r.amount} ${r.note}`),
           );
         }
-        setState({ data: rows, loading: false, error: null });
+        // Cache trên đĩa trả lời trước server, và lần đầu mở app trên một máy
+        // thì câu trả lời đó là danh sách rỗng. Rỗng-mà-từ-cache CHƯA phải là
+        // "đã có dữ liệu": tắt màn chờ lúc đó thì người dùng thấy trang trắng,
+        // một lúc sau số mới đổ về — đúng cái cần tránh.
+        const settled = !snap.metadata.fromCache || rows.length > 0;
+        if (settled) clearTimeout(giveUp);
+        setState((s) => ({
+          data: rows,
+          // `s.loading &&` để màn chờ chỉ hiện đúng lúc mở app. Đổi tháng cũng
+          // là đổi query, snapshot đầu của query mới cũng có thể rỗng, nhưng
+          // lúc đó không được che cả trang lại lần nữa.
+          loading: s.loading && !settled,
+          error: null,
+        }));
       },
-      (err) => setState({ data: [], loading: false, error: describeDbError(err) }),
+      (err) => {
+        clearTimeout(giveUp);
+        setState({ data: [], loading: false, error: describeDbError(err) });
+      },
     );
+
+    return () => {
+      clearTimeout(giveUp);
+      stop();
+    };
   }, [uid, key]);
 
   return uid && months.length > 0 ? state : NO_TRANSACTIONS;
@@ -123,9 +156,21 @@ export function useBudget(
 
   useEffect(() => {
     if (!uid) return;
-    return onSnapshot(
+
+    // Doc hạn mức có thể chưa từng được tạo, mà từ cache thì "không tồn tại" và
+    // "chưa biết" trông y như nhau. Nên khác useTransactions: snapshot đầu tiên
+    // nào cũng tính là chốt, chờ thêm thì ai chưa đặt hạn mức sẽ phải đợi server
+    // mỗi lần mở app. Hẹn giờ ở đây chỉ để lo trường hợp mất mạng, snapshot
+    // không bao giờ tới.
+    const giveUp = setTimeout(
+      () => setState((s) => ({ ...s, loading: false })),
+      GIVE_UP_MS,
+    );
+
+    const stop = onSnapshot(
       doc(getDb(), "users", uid, "budgets", month),
       (snap) => {
+        clearTimeout(giveUp);
         const limit = snap.data()?.limit;
         setState({
           data: typeof limit === "number" ? limit : null,
@@ -133,8 +178,16 @@ export function useBudget(
           error: null,
         });
       },
-      (err) => setState({ data: null, loading: false, error: describeDbError(err) }),
+      (err) => {
+        clearTimeout(giveUp);
+        setState({ data: null, loading: false, error: describeDbError(err) });
+      },
     );
+
+    return () => {
+      clearTimeout(giveUp);
+      stop();
+    };
   }, [uid, month]);
 
   return uid ? state : NO_BUDGET;

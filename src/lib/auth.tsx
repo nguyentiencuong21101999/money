@@ -23,6 +23,23 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
+/**
+ * Hoãn một việc nền tới lúc trình duyệt rảnh tay.
+ *
+ * Đăng ký service worker, xin token FCM và ghi hồ sơ đều là việc không ai đứng
+ * chờ, nhưng chạy ngay khi vừa đăng nhập thì chúng giành CPU và băng thông với
+ * đúng cái query đang làm người dùng nhìn màn hình trống. `timeout` để máy lúc
+ * nào cũng bận thì vẫn có lúc chạy, chứ không hoãn vô thời hạn.
+ */
+function whenIdle(run: () => void) {
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(run, { timeout: 3_000 });
+  } else {
+    // Safari chưa có requestIdleCallback — canh sau lần vẽ đầu tiên là đủ.
+    setTimeout(run, 1_500);
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(firebaseConfigured);
@@ -36,10 +53,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Bắt ở đây chứ không ở signIn(): chỗ này chạy cho cả lần bấm đăng nhập
       // lẫn lần mở lại app với phiên cũ, nên token xoay lúc nào cũng được ghi lại.
       // Chạy nền và nuốt lỗi — thông báo hỏng thì cũng không được cản đăng nhập.
+      // Xem whenIdle: nhường đường cho lượt tải dữ liệu trước đã.
       if (u) {
-        void syncPush(u.uid).catch((e) => console.error("[push] sync", e));
-        // Hồ sơ cho trang quản lý. Cũng chạy nền, hỏng thì thôi.
-        void saveProfile(u).catch((e) => console.error("[profile] save", e));
+        whenIdle(() => {
+          void syncPush(u.uid).catch((e) => console.error("[push] sync", e));
+          // Hồ sơ cho trang quản lý. Cũng chạy nền, hỏng thì thôi.
+          void saveProfile(u).catch((e) => console.error("[profile] save", e));
+        });
       }
     });
   }, []);

@@ -26,6 +26,24 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="vi" className="h-full">
+      <head>
+        {/* Bắt tay DNS + TLS với Google ngay từ lúc trình duyệt còn đang tải JS,
+            thay vì đợi Firebase khởi động xong mới bắt đầu. Trên 4G mỗi lần bắt
+            tay là 200-400ms, mà đây là ba host nằm thẳng trên đường tới dữ liệu:
+            firestore đọc giao dịch, securetoken làm mới token phiên cũ,
+            identitytoolkit lo lượt đăng nhập. */}
+        <link rel="preconnect" href="https://firestore.googleapis.com" crossOrigin="anonymous" />
+        <link
+          rel="preconnect"
+          href="https://securetoken.googleapis.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preconnect"
+          href="https://identitytoolkit.googleapis.com"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body className="min-h-full">
         <AuthProvider>{children}</AuthProvider>
       </body>

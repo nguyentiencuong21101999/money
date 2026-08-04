@@ -27,7 +27,13 @@ export function Notifications() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pt-4 pb-16">
+    /* Cột cao đúng một màn hình: đầu trang và dòng ghi chú cuối đứng yên, chỉ
+       danh sách ở giữa cuộn. Dùng flex chứ không đặt max-height bằng calc() cho
+       cái <ul>, vì đầu trang có thể xuống dòng trên máy hẹp — calc() đoán chiều
+       cao đó là đoán sai, còn flex-1 thì lấy đúng phần còn lại bao nhiêu cũng
+       vừa. min-h-0 là bắt buộc: thiếu nó thì flex item không cho co nhỏ hơn nội
+       dung và cả trang lại dài ra như cũ. */
+    <div className="mx-auto flex h-dvh max-w-2xl flex-col px-4 pt-4 pb-4">
       <PageHeader title="Thông báo">
         {unread > 0 && (
           <span className="bg-expense/12 text-expense rounded-full px-2 py-0.5 text-xs font-medium">
@@ -46,13 +52,13 @@ export function Notifications() {
       </PageHeader>
 
       {error && (
-        <p className="border-critical/40 bg-critical/6 text-critical mb-4 rounded-xl border px-4 py-3 text-sm">
+        <p className="border-critical/40 bg-critical/6 text-critical mb-4 shrink-0 rounded-xl border px-4 py-3 text-sm">
           {error}
         </p>
       )}
 
       {items.length === 0 ? (
-        <div className="card animate-pop px-5 py-12 text-center">
+        <div className="card animate-pop shrink-0 px-5 py-12 text-center">
           <BellIcon size={32} className="text-expense/55 mx-auto" />
           <p className="mt-2 text-sm font-medium">
             {loading ? "Đang tải…" : "Chưa có thông báo nào"}
@@ -62,7 +68,7 @@ export function Notifications() {
           </p>
         </div>
       ) : (
-        <ul className="card animate-rise divide-hairline divide-y overflow-hidden p-0">
+        <ul className="card animate-rise divide-hairline min-h-0 flex-1 divide-y overflow-y-auto p-0">
           {items.map((item) => (
             <NotificationRow key={item.id} item={item} onOpen={openItem} now={now} />
           ))}
@@ -70,7 +76,7 @@ export function Notifications() {
       )}
 
       {items.length === ALL_COUNT && (
-        <p className="text-muted mt-3 text-center text-xs">
+        <p className="text-muted mt-3 shrink-0 text-center text-xs">
           Chỉ hiện {ALL_COUNT} thông báo gần nhất.
         </p>
       )}

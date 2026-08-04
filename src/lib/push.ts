@@ -1,8 +1,17 @@
 "use client";
 
 import { deleteDoc, doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { deleteToken, getMessaging, getToken, isSupported } from "firebase/messaging";
 import { getDb, getFirebaseApp } from "./firebase";
+
+/**
+ * `firebase/messaging` nặng cỡ 30KB gzip mà chỉ cần khi thật sự chạm tới thông
+ * báo đẩy. Import động để nó rời khỏi gói JS của lần tải trang đầu — mọi nơi
+ * gọi tới nó đều là việc chạy nền hoặc sau một cú bấm, chậm thêm một nhịp tải
+ * module thì không ai thấy.
+ */
+function messaging() {
+  return import("firebase/messaging");
+}
 
 /** Console > Project settings > Cloud Messaging > Web Push certificates. */
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
@@ -23,10 +32,13 @@ export type PushState =
   | "on";
 
 async function usable(): Promise<boolean> {
+  // Hai phép thử rẻ tiền này đứng trước import động là có ý: máy nào không đỡ
+  // được thông báo thì khỏi phải tải cả module messaging về rồi bỏ đó.
   if (!VAPID_KEY || typeof window === "undefined") return false;
   if (!("Notification" in window) || !("serviceWorker" in navigator)) return false;
   // isSupported() bắt luôn các trường hợp khó đoán: Safari cũ, iOS chưa "Thêm
   // vào màn hình chính", trình duyệt trong ứng dụng khác (Facebook, Zalo).
+  const { isSupported } = await messaging();
   return await isSupported();
 }
 
@@ -125,7 +137,12 @@ function deviceLabel(): string {
 }
 
 async function saveToken(uid: string): Promise<string | null> {
-  const registration = await navigator.serviceWorker.register(SW_URL);
+  // Tải module và đăng ký service worker song song — hai việc không phụ thuộc
+  // nhau, xếp hàng chờ nhau chỉ tốn thêm thời gian.
+  const [{ getMessaging, getToken }, registration] = await Promise.all([
+    messaging(),
+    navigator.serviceWorker.register(SW_URL),
+  ]);
   const token = await getToken(getMessaging(getFirebaseApp()), {
     vapidKey: VAPID_KEY,
     serviceWorkerRegistration: registration,
@@ -224,6 +241,7 @@ export async function disablePush(uid: string): Promise<void> {
   await deleteDoc(deviceDoc(uid));
   // Huỷ luôn token phía Firebase, không thì máy chủ vẫn coi máy này còn sống.
   if (Notification.permission === "granted") {
+    const { deleteToken, getMessaging } = await messaging();
     await deleteToken(getMessaging(getFirebaseApp()));
   }
 }
