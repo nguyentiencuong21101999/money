@@ -1,32 +1,22 @@
 import { Logo } from "./Logo";
 
-interface Props {
-  /** Đọc cho trình đọc màn hình, vd "Đang tải giao dịch". */
-  label?: string;
-  /**
-   * Chiếm cả màn hình. Dùng khi trang chưa vẽ được gì cả (còn đang xác thực).
-   * Mặc định là một khối nằm trong trang, bên dưới đầu trang đã vẽ sẵn.
-   */
-  full?: boolean;
-}
-
 /**
- * Icon thở nhẹ, dùng cho MỌI lần chờ: chờ đăng nhập, chờ giao dịch, chờ hồ sơ.
+ * Màn chờ duy nhất của app: logo thở nhẹ, giữa màn hình, không props.
  *
- * Cố tình dùng chung một hình cho tất cả: vào app là màn xác thực hiện logo
- * này, xong tới lượt chờ dữ liệu vẫn logo này — mắt thấy một nhịp chờ liền
- * mạch, không phải hai nhịp với hai hình khác nhau nhấp nháy nối nhau.
+ * KHÔNG có biến thể "khối nhỏ nằm trong trang". Mở app phải chờ hai việc nối
+ * nhau — xác thực rồi tải giao dịch — mà mỗi việc một kiểu màn chờ thì người
+ * dùng thấy hai nhịp: logo to giữa màn hình, rồi đầu trang hiện ra kèm một logo
+ * nhỏ hơn tụt xuống dưới, rồi mới tới nội dung. Cùng một hình ở cùng một chỗ
+ * suốt cả hai việc thì chỉ còn một nhịp chờ.
  *
- * Thà chờ còn hơn vẽ số 0 rồi nhảy: các panel tổng kết mà hiện sẵn "0 ₫" lúc
- * chưa có dữ liệu thì người đọc kịp tin là mình chưa tiêu gì.
+ * Cũng vì vậy mà đừng thêm props: khác cỡ hay khác chỗ một chút là lại thành
+ * hai nhịp.
  */
-export function Loading({ label = "Đang tải", full = false }: Props) {
+export function Loading() {
   return (
-    <div
-      className={full ? "flex min-h-dvh items-center justify-center p-5" : "flex justify-center py-24"}
-    >
-      <span role="status" aria-label={label} className="animate-breathe">
-        <Logo size={full ? 64 : 44} />
+    <div className="flex min-h-dvh items-center justify-center p-5">
+      <span role="status" aria-label="Đang tải" className="animate-breathe">
+        <Logo size={64} />
       </span>
     </div>
   );

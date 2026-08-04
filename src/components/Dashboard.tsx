@@ -112,6 +112,17 @@ export function Dashboard() {
     };
   });
 
+  /*
+   * Chưa có dữ liệu thì chưa vẽ gì cả — kể cả đầu trang và thanh chọn tháng.
+   *
+   * Đặt sau toàn bộ hook để thứ tự hook không đổi giữa các lần render. Vẽ đầu
+   * trang trước rồi chờ tiếp ở khoảng giữa thì thành hai nhịp chờ nối nhau: màn
+   * xác thực vừa tắt, đầu trang hiện ra, xong lại một màn chờ nữa. Trả về đúng
+   * cái màn chờ AuthGate đang dùng thì người dùng chỉ thấy một nhịp, rồi cả
+   * trang hiện ra một lượt.
+   */
+  if (loading) return <Loading />;
+
   return (
     <div className="mx-auto max-w-2xl px-4 pt-4 pb-28">
       {/* animate-fade chạy trên opacity nên biến header thành stacking context riêng:
@@ -160,37 +171,31 @@ export function Dashboard() {
         </p>
       )}
 
-      {/* Thà chờ còn hơn vẽ số 0 rồi nhảy — xem Loading. Màn chờ này chỉ hiện
-          lúc mở app; đổi tháng thì dữ liệu đã nằm trong cache, không che nữa. */}
-      {loading ? (
-        <Loading label="Đang tải giao dịch" />
-      ) : (
-        <div className="space-y-4">
-          <SummaryPanel
-            summary={summary}
-            previousMonth={previousMonth}
-            delta={spendingDelta(summary.expense, previous.expense)}
-          />
+      <div className="space-y-4">
+        <SummaryPanel
+          summary={summary}
+          previousMonth={previousMonth}
+          delta={spendingDelta(summary.expense, previous.expense)}
+        />
 
-          {/* key theo tháng: đổi tháng thì ô sửa hạn mức tự đóng lại */}
-          <BudgetBar
-            key={month}
-            uid={uid}
-            month={month}
-            limit={budgetLimit}
-            spent={summary.expense}
-          />
+        {/* key theo tháng: đổi tháng thì ô sửa hạn mức tự đóng lại */}
+        <BudgetBar
+          key={month}
+          uid={uid}
+          month={month}
+          limit={budgetLimit}
+          spent={summary.expense}
+        />
 
-          {summary.count > 0 && <CategoryBars slices={slices} />}
+        {summary.count > 0 && <CategoryBars slices={slices} />}
 
-          <MonthlyTrend points={points} currentMonth={month} onSelectMonth={setMonth} />
+        <MonthlyTrend points={points} currentMonth={month} onSelectMonth={setMonth} />
 
-          <TxList
-            transactions={monthTransactions}
-            onEdit={(tx) => setSheet({ mode: "edit", tx })}
-          />
-        </div>
-      )}
+        <TxList
+          transactions={monthTransactions}
+          onEdit={(tx) => setSheet({ mode: "edit", tx })}
+        />
+      </div>
 
       <button
         type="button"

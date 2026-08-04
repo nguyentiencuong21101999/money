@@ -12,8 +12,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (!firebaseConfigured) return <SetupNotice />;
 
   // Chỉ icon thở nhẹ — F5 xong thấy ngay nhận diện quen thuộc, không phải một
-  // câu thông báo kỹ thuật. Cũng đúng hình mà lượt chờ dữ liệu ngay sau đó dùng.
-  if (loading) return <Loading full label="Đang đăng nhập" />;
+  // câu thông báo kỹ thuật. Đúng cái màn chờ mà Dashboard dùng tiếp ngay sau đó
+  // để đợi giao dịch, nên hai lượt chờ trông như một.
+  if (loading) return <Loading />;
 
   if (!user) {
     return (
