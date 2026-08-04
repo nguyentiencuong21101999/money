@@ -17,6 +17,7 @@ import { useBudget, useTransactions } from "@/lib/transactions";
 import type { Transaction } from "@/lib/types";
 import { BudgetBar } from "./BudgetBar";
 import { CategoryBars } from "./CategoryBars";
+import { Loading } from "./Loading";
 import { Logo } from "./Logo";
 import { MonthPicker } from "./MonthPicker";
 import { MonthlyTrend } from "./MonthlyTrend";
@@ -44,8 +45,11 @@ export function Dashboard() {
   const [scanError, setScanError] = useState<string | null>(null);
 
   const months = useMemo(() => lastNMonths(month, TREND_MONTHS), [month]);
-  const { data: transactions, loading, error } = useTransactions(uid, months);
-  const { data: budgetLimit } = useBudget(uid, month);
+  const { data: transactions, loading: txLoading, error } = useTransactions(uid, months);
+  const { data: budgetLimit, loading: budgetLoading } = useBudget(uid, month);
+  // Chờ cả hai: hạn mức về sau giao dịch thì BudgetBar nhảy từ "chưa đặt hạn
+  // mức" sang thanh tiến độ, trông như app tự đổi ý.
+  const loading = txLoading || budgetLoading;
 
   const previousMonth = shiftMonth(month, -1);
   const summary = useMemo(() => summarize(month, transactions), [month, transactions]);
@@ -156,31 +160,37 @@ export function Dashboard() {
         </p>
       )}
 
-      <div className={loading ? "space-y-4 opacity-50" : "space-y-4"}>
-        <SummaryPanel
-          summary={summary}
-          previousMonth={previousMonth}
-          delta={spendingDelta(summary.expense, previous.expense)}
-        />
+      {/* Thà chờ còn hơn vẽ số 0 rồi nhảy — xem Loading. Màn chờ này chỉ hiện
+          lúc mở app; đổi tháng thì dữ liệu đã nằm trong cache, không che nữa. */}
+      {loading ? (
+        <Loading label="Đang tải giao dịch" />
+      ) : (
+        <div className="space-y-4">
+          <SummaryPanel
+            summary={summary}
+            previousMonth={previousMonth}
+            delta={spendingDelta(summary.expense, previous.expense)}
+          />
 
-        {/* key theo tháng: đổi tháng thì ô sửa hạn mức tự đóng lại */}
-        <BudgetBar
-          key={month}
-          uid={uid}
-          month={month}
-          limit={budgetLimit}
-          spent={summary.expense}
-        />
+          {/* key theo tháng: đổi tháng thì ô sửa hạn mức tự đóng lại */}
+          <BudgetBar
+            key={month}
+            uid={uid}
+            month={month}
+            limit={budgetLimit}
+            spent={summary.expense}
+          />
 
-        {summary.count > 0 && <CategoryBars slices={slices} />}
+          {summary.count > 0 && <CategoryBars slices={slices} />}
 
-        <MonthlyTrend points={points} currentMonth={month} onSelectMonth={setMonth} />
+          <MonthlyTrend points={points} currentMonth={month} onSelectMonth={setMonth} />
 
-        <TxList
-          transactions={monthTransactions}
-          onEdit={(tx) => setSheet({ mode: "edit", tx })}
-        />
-      </div>
+          <TxList
+            transactions={monthTransactions}
+            onEdit={(tx) => setSheet({ mode: "edit", tx })}
+          />
+        </div>
+      )}
 
       <button
         type="button"
