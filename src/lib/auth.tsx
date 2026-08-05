@@ -43,6 +43,15 @@ function whenIdle(run: () => void) {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(firebaseConfigured);
+  /*
+    Đang trong lượt bấm đăng nhập. Tách khỏi `loading` vì `loading` chỉ phủ lượt
+    kiểm tra phiên lúc mở app, xong là tắt vĩnh viễn.
+
+    Không có cờ này thì có một quãng hở: popup Google đã đóng nhưng Firebase còn
+    đang đổi mã lấy token với máy chủ — một vòng gọi mạng. Suốt quãng đó `user`
+    vẫn null nên màn đăng nhập hiện LẠI một nhịp, rồi mới nhảy sang màn chờ.
+  */
+  const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,6 +59,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return onAuthStateChanged(getFirebaseAuth(), (u) => {
       setUser(u);
       setLoading(false);
+      /*
+        Tắt vô điều kiện, kể cả khi u là null. Nếu chỉ tắt lúc có user thì một
+        lần bắn null bất thường sẽ khiến app kẹt ở màn chờ vĩnh viễn — hỏng nặng
+        hơn nhiều so với việc màn đăng nhập loé lên một nhịp.
+      */
+      setSigningIn(false);
       // Bắt ở đây chứ không ở signIn(): chỗ này chạy cho cả lần bấm đăng nhập
       // lẫn lần mở lại app với phiên cũ, nên token xoay lúc nào cũng được ghi lại.
       // Chạy nền và nuốt lỗi — thông báo hỏng thì cũng không được cản đăng nhập.
@@ -67,15 +82,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthState>(
     () => ({
       user,
-      loading,
+      loading: loading || signingIn,
       error,
       async signIn() {
         setError(null);
+        setSigningIn(true);
         try {
           // Token thông báo do onAuthStateChanged ở trên lo, không gọi lại ở đây.
           await signInWithPopup(getFirebaseAuth(), googleProvider);
+          /*
+            CỐ Ý không tắt signingIn ở đây. Hàm này trả về xong thì user vẫn
+            chưa vào state — phải đợi onAuthStateChanged bắn. Tắt ngay tại đây
+            là mở lại đúng cái quãng hở mà cờ này sinh ra để bịt.
+          */
         } catch (e) {
           setError(describeAuthError(e));
+          // Bấm huỷ / đóng popup thì phải trả người dùng về màn đăng nhập.
+          setSigningIn(false);
         }
       },
       async signOutUser() {
@@ -91,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await signOut(getFirebaseAuth());
       },
     }),
-    [user, loading, error],
+    [user, loading, signingIn, error],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
