@@ -210,7 +210,9 @@ export function Dashboard() {
 
       {scanning && (
         <div className="animate-fade fixed inset-0 z-40 flex items-center justify-center bg-black/30 backdrop-blur-md">
-          <p className="card animate-pop flex items-center gap-2.5 px-5 py-3.5 text-sm font-medium shadow-lg">
+          {/* sheet-surface vì thẻ này cũng nằm trên lớp phủ tối — để kính trong
+              thì nó ăn màu tối và ra xám đục, lệch hẳn với các popup khác. */}
+          <p className="card sheet-surface animate-pop flex items-center gap-2.5 px-5 py-3.5 text-sm font-medium shadow-lg">
             <span className="border-expense/25 border-t-expense h-4 w-4 animate-spin rounded-full border-2" />
             Đang đọc hoá đơn…
           </p>
