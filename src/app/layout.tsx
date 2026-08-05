@@ -20,7 +20,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   // Khớp màu nền trang để thanh trạng thái trên điện thoại liền mạch với app.
-  themeColor: "#faf5f7",
+  // Lấy màu ở ĐỈNH trang, nơi vệt tím phủ đậm nhất (đo bằng scripts/validate-palette.mjs),
+  // chứ không lấy màu nền trơn — thanh trạng thái nằm sát mép trên, phải khớp
+  // với đúng chỗ nó chạm vào.
+  themeColor: "#d8a6ee",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

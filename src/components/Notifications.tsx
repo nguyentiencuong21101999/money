@@ -59,7 +59,7 @@ export function Notifications() {
 
       {items.length === 0 ? (
         <div className="card animate-pop shrink-0 px-5 py-12 text-center">
-          <BellIcon size={32} className="text-expense/55 mx-auto" />
+          <BellIcon size={32} gradient className="mx-auto opacity-60" />
           <p className="mt-2 text-sm font-medium">
             {loading ? "Đang tải…" : "Chưa có thông báo nào"}
           </p>

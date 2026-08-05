@@ -56,14 +56,14 @@ export function UserDetail({ uid }: { uid: string }) {
           <div className="flex items-center gap-2 sm:shrink-0">
             <Link
               href={`/manager/${uid}/sao-ke`}
-              className="border-hairline text-ink-2 hover:bg-expense/8 flex-1 rounded-lg border px-3 py-2 text-center text-xs font-medium whitespace-nowrap transition active:scale-[0.97] sm:flex-none"
+              className="glass-chip ring-ramp text-ink-2 flex-1 rounded-full px-3 py-2 text-center text-xs font-medium whitespace-nowrap transition active:scale-[0.97] sm:flex-none"
             >
               Sao kê
             </Link>
             <button
               type="button"
               onClick={() => setSending(true)}
-              className="bg-brand flex-1 rounded-lg px-3 py-2 text-xs font-medium whitespace-nowrap text-white transition hover:brightness-110 active:scale-[0.97] sm:flex-none"
+              className="bg-brand flex-1 rounded-full px-3 py-2 text-xs font-medium whitespace-nowrap text-white transition active:scale-[0.97] sm:flex-none"
             >
               Gửi thông báo
             </button>

@@ -125,7 +125,7 @@ export function DateSelect({ label, value, onChange }: Props) {
                     onClick={() => pick(date)}
                     className={`h-8 rounded-lg text-sm tabular-nums transition duration-150 active:scale-90 ${
                       date === value
-                        ? "bg-brand font-semibold text-white shadow-[0_4px_10px_-4px_rgba(194,37,92,0.5)]"
+                        ? "bg-brand font-semibold text-white"
                         : date === today
                           ? "text-expense font-semibold ring-expense/40 ring-1 ring-inset"
                           : "text-ink-2 hover:bg-expense/8 hover:text-ink"
@@ -141,7 +141,7 @@ export function DateSelect({ label, value, onChange }: Props) {
               type="button"
               onClick={() => pick(today)}
               disabled={value === today}
-              className="border-hairline text-ink-2 hover:border-expense/40 hover:text-expense mt-2.5 w-full rounded-lg border py-1.5 text-xs font-medium transition duration-150 disabled:opacity-40 disabled:hover:border-current"
+              className="frame-ramp text-ink-2 mt-2.5 w-full rounded-lg py-1.5 text-xs font-medium transition duration-150 disabled:opacity-40"
             >
               Hôm nay
             </button>

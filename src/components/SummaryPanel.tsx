@@ -21,15 +21,23 @@ export function SummaryPanel({ summary, previousMonth, delta }: Props) {
       {/* Hero figure — con số duy nhất của trang, dùng chữ số tỉ lệ (không tabular).
           clamp theo bề rộng để số hàng tỷ không tràn ra ngoài thẻ trên điện thoại. */}
       {/* animate-pop chỉ tác động opacity + transform nên không đụng tới cỡ chữ clamp. */}
-      {/* Số dư âm mới tô đỏ. Số dư dương để màu chữ thường — đây là con số
-          chủ đạo của trang, tô xanh cả tháng thành ra rực rỡ vô nghĩa. */}
-      <p
-        className={`animate-pop mt-1 text-[clamp(1.6rem,7.5vw,2.75rem)] leading-none font-semibold tracking-tight ${
-          positive ? "text-ink" : "text-danger-text"
-        }`}
-      >
-        {positive ? "" : "−"}
-        {formatVND(Math.abs(balance))}
+      {/* Số dư DƯƠNG tô xen kẽ tím–hồng. Số dư ÂM giữ một màu hồng đặc, cố ý:
+          âm hay dương là thông tin, mà kiểu tô xen kẽ thì cả hai trường hợp đều
+          rực rỡ như nhau nên không mã hoá được điều đó. Tô đặc thì liếc một cái
+          là thấy tháng này âm. */}
+      <p className="animate-pop mt-1 text-[clamp(1.6rem,7.5vw,2.75rem)] leading-none font-semibold tracking-tight">
+        {/*
+          Bản liền mạch cho trình đọc màn hình. Bắt buộc phải có: bản trang trí
+          cắt con số thành hàng chục thẻ <span>, nhiều trình đọc sẽ ngắt hơi
+          từng mảnh và đọc thành một chuỗi rời rạc.
+        */}
+        <span className="sr-only">
+          {positive ? "" : "−"}
+          {formatVND(Math.abs(balance))}
+        </span>
+        <span aria-hidden="true" className={positive ? "" : "text-danger-text"}>
+          {positive ? <AlternatingAmount text={formatVND(balance)} /> : `−${formatVND(-balance)}`}
+        </span>
       </p>
 
       <div className="border-hairline mt-5 grid grid-cols-2 gap-4 border-t pt-4">
@@ -42,6 +50,37 @@ export function SummaryPanel({ summary, previousMonth, delta }: Props) {
         <DeltaLine delta={delta} previousMonth={previousMonth} />
       </div>
     </div>
+  );
+}
+
+/**
+ * Tô xen kẽ tím – hồng theo từng CHỮ SỐ, riêng ký hiệu ₫ tô bằng dải gradient.
+ *
+ * Dấu chấm phân cách ăn theo màu của chữ số ngay trước nó: cho nó đổi màu riêng
+ * thì cụm "22.145.000" nhấp nháy vụn ra, mắt khó gom lại thành một con số.
+ * Hai màu đều đạt chuẩn đọc ngay trên mặt kính tối nhất (4.78 và 5.15), mà đây
+ * lại là chữ cỡ lớn nên còn dư rất nhiều.
+ */
+function AlternatingAmount({ text }: { text: string }) {
+  let digits = 0;
+  return (
+    <>
+      {[...text].map((ch, i) => {
+        if (ch === "₫") {
+          return (
+            <span key={i} className="text-ramp">
+              {ch}
+            </span>
+          );
+        }
+        if (/\d/.test(ch)) digits += 1;
+        return (
+          <span key={i} className={digits % 2 ? "text-expense" : "text-danger-text"}>
+            {ch}
+          </span>
+        );
+      })}
+    </>
   );
 }
 
@@ -62,7 +101,7 @@ function Tile({
         <span
           aria-hidden="true"
           className={`h-2 w-2 shrink-0 rounded-full ${
-            accent === "income" ? "bg-income" : "bg-expense"
+            accent === "income" ? "bg-income" : "bg-outflow"
           }`}
         />
         <span className="text-ink-2 text-xs font-medium">{label}</span>

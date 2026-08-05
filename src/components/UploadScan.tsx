@@ -89,7 +89,7 @@ export function UploadScan({ onScanned, thumbnail, onRemove }: Props) {
             type="button"
             onClick={() => setViewing(true)}
             aria-label="Xem ảnh to"
-            className="border-hairline hover:border-expense shrink-0 cursor-zoom-in overflow-hidden rounded-lg border transition active:scale-95"
+            className="frame-ramp shrink-0 cursor-zoom-in overflow-hidden rounded-lg transition active:scale-95"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -158,7 +158,17 @@ export function UploadScan({ onScanned, thumbnail, onRemove }: Props) {
             <span>Thả ảnh vào đây</span>
           ) : (
             <>
-              <span>📷 Chọn ảnh hoá đơn từ máy hoặc chụp mới</span>
+              {/* Hai điều bắt buộc ở đây:
+                  1. text-ramp nằm ở thẻ CON, không đặt lên chính cái nút — nút
+                     có nền bg-expense/6, mà background-clip:text sẽ cắt luôn
+                     nền đó theo hình chữ và làm mất mảng nền.
+                  2. Emoji phải nằm NGOÀI text-ramp. background-clip:text biến
+                     chữ thành mặt nạ, mà emoji là glyph nhiều màu nên sẽ bị
+                     nuốt mất màu riêng và hiện ra một khối đặc. */}
+              <span>
+                <span aria-hidden="true">📷 </span>
+                <span className="text-ramp">Chọn ảnh hoá đơn từ máy hoặc chụp mới</span>
+              </span>
               <span className="text-expense/70 text-xs font-normal">
                 Dán ảnh (⌘V / Ctrl+V) hoặc kéo thả vào đây cũng được
               </span>

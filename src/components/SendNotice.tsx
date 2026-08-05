@@ -76,7 +76,7 @@ export function SendNotice({ uid, name, onClose }: Props) {
 
   return (
     <div
-      className="animate-fade fixed inset-0 z-50 flex items-end justify-center bg-black/35 sm:items-center"
+      className="animate-fade fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-md sm:items-center"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="card animate-sheet sm:animate-pop max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-b-none p-5 sm:rounded-b-2xl">
@@ -150,7 +150,7 @@ export function SendNotice({ uid, name, onClose }: Props) {
             <button
               type="button"
               onClick={onClose}
-              className="border-hairline text-ink-2 hover:bg-expense/8 rounded-xl border px-4 py-2.5 text-sm font-medium transition"
+              className="glass-chip ring-ramp text-ink-2 rounded-xl px-4 py-2.5 text-sm font-medium transition"
             >
               {result ? "Xong" : "Huỷ"}
             </button>

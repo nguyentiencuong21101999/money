@@ -43,8 +43,8 @@ export function UserMenu({ user, onSignOut }: Props) {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Tài khoản ${name}`}
-        className={`bg-surface flex shrink-0 items-center gap-2 rounded-full border py-1 pr-2 pl-1 sm:pr-3 transition duration-200 active:scale-[0.97] ${
-          open ? "border-expense/45" : "border-hairline hover:border-expense/30"
+        className={`glass-chip ring-ramp flex shrink-0 items-center gap-2 rounded-full py-1 pr-2 pl-1 sm:pr-3 transition duration-200 active:scale-[0.97] ${
+          open ? "is-ringed" : ""
         }`}
       >
         <Avatar user={user} size={26} />
@@ -67,7 +67,7 @@ export function UserMenu({ user, onSignOut }: Props) {
         <div
           ref={panel}
           role="menu"
-          className="card animate-drop border-expense/25 absolute right-0 z-40 mt-2 w-64 origin-top-right overflow-hidden p-0 shadow-lg"
+          className="card overlay-surface animate-drop border-expense/25 absolute right-0 z-40 mt-2 w-64 origin-top-right overflow-hidden p-0 shadow-lg"
         >
           <div className="flex items-center gap-3 px-4 py-3.5">
             <Avatar user={user} size={40} />
@@ -97,7 +97,7 @@ export function UserMenu({ user, onSignOut }: Props) {
               onClick={() => setOpen(false)}
               className="border-hairline hover:bg-expense/8 flex items-center gap-2 border-t px-4 py-3 text-sm font-medium transition"
             >
-              <UsersIcon size={16} className="text-expense" />
+              <UsersIcon size={16} gradient />
               Quản lý người dùng
             </Link>
           )}
@@ -140,7 +140,7 @@ function Avatar({ user, size }: { user: User; size: number }) {
   return (
     <span
       aria-hidden="true"
-      className="bg-expense flex shrink-0 items-center justify-center rounded-full font-semibold text-white"
+      className="bar-fill flex shrink-0 items-center justify-center rounded-full font-semibold text-white"
       style={{ width: size, height: size, fontSize: size * 0.42 }}
     >
       {initials(user)}

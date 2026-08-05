@@ -26,7 +26,7 @@ export function NotificationRow({ item, onOpen, now }: Props) {
         <span
           aria-hidden="true"
           className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-            item.isRead ? "bg-transparent" : "bg-expense"
+            item.isRead ? "bg-transparent" : "bar-fill"
           }`}
         />
 

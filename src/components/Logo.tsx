@@ -13,7 +13,24 @@ export function Logo({ size = 28 }: { size?: number }) {
       aria-label="Sổ tiền"
       className="shrink-0"
     >
-      <rect width="64" height="64" rx="15" fill="var(--color-brand)" />
+      <defs>
+        {/*
+          Chuyển màu chéo cùng chiều với gradient nền trang: tím ở góc trên-trái
+          xuống hồng cánh sen ở dưới-phải.
+          Id phải duy nhất trong cả tài liệu, mà logo xuất hiện nhiều lần trên
+          một trang (header + màn đăng nhập). Trùng id thì mọi bản đều lấy theo
+          <defs> đầu tiên — ở đây cả ba stop giống hệt nhau nên vô hại, nhưng
+          vẫn đặt tên riêng thay vì "gradient" chung chung để không đụng SVG khác.
+        */}
+        {/* Ba chặng khớp đúng --ramp trong globals.css — cùng dải với nút và
+            thanh tiến độ. Đổi ở đây thì đổi cả ở đó, và ở src/app/icon.svg. */}
+        <linearGradient id="logo-ramp" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#a21caf" />
+          <stop offset="45%" stopColor="#c0208d" />
+          <stop offset="100%" stopColor="#d61f6d" />
+        </linearGradient>
+      </defs>
+      <rect width="64" height="64" rx="15" fill="url(#logo-ramp)" />
       <g
         fill="none"
         stroke="#fff"

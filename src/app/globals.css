@@ -1,52 +1,240 @@
 @import "tailwindcss";
 
 /*
-  TÔNG HỒNG — mọi giá trị đều đã đo, không ước lượng bằng mắt.
+  TÔNG HỒNG CÁNH SEN + KÍNH MỜ — mọi giá trị đều ĐO, không ước lượng bằng mắt.
+  Chạy `npm run check-palette` để đo phần tính được.
 
-  Cặp màu biểu đồ #d6336c (tiền ra) ↔ #2a78d6 (tiền vào), chạy qua
-  scripts/validate_palette.js trên nền #fffafb: đạt sạch 5/5 tiêu chí,
-  CVD ΔE 17.2 (protan) và normal ΔE 29.8, contrast cả hai đều >= 3:1.
+  CẢNH BÁO cho lần chỉnh sau: công thức trộn alpha KHÔNG dự đoán được mặt kính
+  thật. Nó bỏ qua saturate() của backdrop-filter, bỏ qua quy tắc backdrop-root,
+  và bỏ qua chuyện thẻ trôi qua các vùng gradient khác nhau khi cuộn. Số dưới
+  đây lấy từ ảnh chụp thật (ẩn nội dung, quét nhiều nấc cuộn, lấy pixel tối nhất
+  trên mặt kính). Mặt kính tối nhất qua mọi nấc cuộn: #febee6.
 
-  Đã LOẠI hồng + xanh ngọc (#d6336c ↔ #0f9b8e): nhìn thường thì rất hợp
-  nhưng với người mù màu lục chỉ còn ΔE 5.5, dưới ngưỡng an toàn 8.
+  Cặp màu biểu đồ #911ba0 tím (tiền VÀO) ↔ #9d174d hồng (tiền RA).
 
-  Tương phản chữ (WCAG AA cần 4.5): trắng trên #c2255c = 5.66 · ink = 18.0
-  · ink-2 = 7.95 · muted = 4.82 · hồng làm chữ = 5.47.
+  HAI ĐIỂM YẾU ĐÃ BIẾT, là lựa chọn của chủ dự án sau khi được báo trước:
+
+   1. Cặp này chỉ đạt 3/6 tiêu chí mù màu. Tím và hồng cùng nhiều LAM, mà mù
+      màu đỏ-lục giữ nguyên trục lam-vàng — nên hai cột dồn về gần một màu.
+      Bản dùng ĐỎ trước đó đạt sạch 6/6 đúng vì đỏ gần như không có lam.
+   2. Số cộng (tím) và số trừ (hồng) chỉ tách nhau 1.08 về độ sáng, lại sát
+      nhau về sắc. Liếc nhanh trong danh sách giao dịch thì hai con số gần như
+      cùng một màu — với MỌI người, không riêng người mù màu. Dấu + và − mới
+      là thứ thực sự phân biệt được.
+
+  Muốn gỡ cả hai mà vẫn giữ tông: trả số trừ và cột tiền ra về ĐỎ (#a31212).
+
+  Tương phản chữ trên #febee6 (WCAG AA cần 4.5, mảng màu lớn cần 3.0):
+  ink 11.86 · ink-2 5.66 · muted 5.24 · hồng làm chữ 4.78 · số cộng 4.93
+  · số trừ 5.17 · cột lục 3.58.
+
+  Thứ chốt độ mỏng của kính là màu ĐỎ số trừ, không phải chữ thường: đỏ trên
+  nền hồng vốn ít tương phản, nên nó chạm ngưỡng trước mọi màu khác.
+
+  Bề mặt NỔI (sheet, dropdown) ngả hồng theo nền nhưng vẫn sáng hơn mặt thẻ,
+  nên rộng cửa hơn: đo được #f5daed (sheet) và #fbe0f3 (popup), thấp nhất 5.62.
+
+  Dải màu đặc --ramp dùng chung cho nút, thanh tiến độ và logo: thanh đạt 3.21
+  trên mặt thẻ (cần 3.0), chữ trắng trên nút đạt 4.91 (cần 4.5). Đây là mức
+  nhạt nhất còn an toàn — nhạt thêm một bậc là 2.93 / 4.48, trượt cả hai.
+  Nút, thanh và logo đều vẽ TRỌN dải trong hộp của chính mình, nên mỗi cái đều
+  chạy đủ từ hồng-sen sang hồng-đào bất kể nằm đâu trên màn hình.
+
+  Riêng bề mặt NỔI (sheet, dropdown) thì ngược lại — chúng lấy gradient của nền
+  và neo theo khung nhìn, để màu trên panel liền mạch với màu quanh nó. Kèm
+  theo đó là hai điều cần nhớ:
+   1. Phần tử có `transform` sẽ biến thành mốc neo của chính nó và làm hỏng cách
+      neo này. Vì vậy hoạt ảnh `drop` cố ý KHÔNG giữ lại transform ở khung cuối.
+   2. Safari trên iOS xưa nay không thực thi đúng background-attachment: fixed.
+      Nếu nó rơi về `scroll` thì nhờ background-size: 100vw 100vh và
+      background-position: center, panel vẫn hiện đoạn giữa của gradient —
+      đồng đều một sắc, không vỡ. Chưa kiểm được trên máy thật.
 */
 @theme inline {
-  --color-plane: #faf5f7; /* nền trang, ánh hồng rất nhạt */
-  --color-surface: #fffafb; /* nền thẻ, cũng là nền biểu đồ */
-  --color-ink: #1a1015; /* đen ngả mận, ấm hơn đen thuần */
-  --color-ink-2: #5c4a52;
-  --color-muted: #7d6b71;
-  --color-grid: #f2e6ea;
-  --color-axis: #e0ccd3;
-  --color-hairline: rgba(26, 16, 21, 0.09);
+  --color-plane: #f6ecfb; /* nền dưới cùng, dưới lớp gradient */
+  --color-surface: #fdf8fe; /* nền ĐỤC — ô nhập cần nền chắc, không cho gradient lởn vởn sau con trỏ */
+  --color-ink: #1f1023; /* đen ngả mận */
+  --color-ink-2: #574560;
+  --color-muted: #5c4a64;
+  /* Lưới và trục của biểu đồ phải ĐẬM hơn mặt kính, không thì mất hút. */
+  --color-grid: #e2cfec;
+  --color-axis: #c6a9d6;
+  --color-hairline: rgba(31, 16, 35, 0.1);
 
-  --color-expense: #d6336c; /* hồng — tiền ra, cũng là màu nhận diện */
-  --color-income: #2a78d6; /* xanh dương — tiền vào */
-  --color-brand: #c2255c; /* bước đậm hơn của ramp hồng, dùng cho nút chính */
-  --color-track: #f5bfd3; /* rãnh thanh hạn mức, bước nhạt cùng ramp */
+  --color-expense: #911ba0; /* hồng cánh sen — tiền ra, cũng là màu nhận diện */
+  --color-income: #911ba0; /* tím — tiền vào (cột biểu đồ) */
+  /*
+    Màu cột "tiền ra" trong biểu đồ. Tách riêng khỏi --color-expense chứ không
+    hoán đổi hai biến: --color-expense còn là màu nhận diện của cả app (chữ,
+    viền, nền hover — hơn 90 chỗ), đổi nó là đổi cả bộ mặt app.
+    Trỏ thẳng sang --color-danger-text chứ không chép lại mã màu: cột "tiền ra"
+    và con số tiền ra phải cùng một màu, chép tay thì sớm muộn cũng lệch nhau.
+    Màu đó là #a31212 — tương phản 5.17 trên mặt kính, dư ngưỡng 3.0 của mảng màu.
+  */
+  --color-outflow: var(--color-danger-text);
+  --color-brand: #7c1687; /* bước đậm hơn cùng ramp, dùng cho nút chính */
+  --color-track: #f0cdf5; /* rãnh thanh hạn mức */
 
-  --color-good: #0ca30c;
-  --color-warning: #fab219;
-  --color-critical: #d03b3b;
+  --color-good: #047857;
+  --color-warning: #b45309;
+  --color-critical: #be123c;
 
   /*
     Màu CHỮ cho dấu của số tiền — mã hoá chiều âm/dương, không phải mã hoá
     chuỗi số liệu, nên được phép khác màu cột biểu đồ.
-    Cả hai đều đạt WCAG AA trên nền thẻ: đỏ 5.44:1 · xanh 7.30:1.
-    Đỏ #c62828 cố ý khác hẳn hồng nhận diện #d6336c để không đọc nhầm
-    "số tiền chi" thành "màu thương hiệu".
+    Hồng #9d174d, tương phản 5.15 trên mặt kính. Đây gần như là TRẦN của nhánh
+    hồng: sáng thêm một bậc (#b01455) chỉ còn 4.46, dưới chuẩn đọc 4.5 — vì nền
+    thẻ vốn đã hồng nên hồng nhạt chìm vào nền.
+    Nó chỉ tách khỏi tím của số cộng được 1.08 — THẤP. Xem cảnh báo ở đầu file.
+
+    Số cộng trỏ thẳng sang --color-income nên luôn khớp màu cột "tiền vào",
+    không phải chép tay hai nơi.
+    Tím #911ba0 và đỏ #a31212 có độ sáng gần nhau, nhưng khác hẳn nhau ở lượng
+    LAM nên vẫn tách rõ — kể cả với người mù màu đỏ-lục. Từng cân nhắc tô HỒNG
+    cho số cộng và đã loại: hồng đủ đậm để làm chữ lại trùng cả sắc lẫn độ sáng
+    với đỏ (#9d174d với #a31212 chỉ tách 1.00), hai con số cạnh nhau sẽ nhìn ra
+    một màu với MỌI người.
   */
-  --color-success-text: #006300; /* số cộng */
-  --color-danger-text: #c62828; /* số trừ */
+  --color-success-text: var(--color-income); /* số cộng — khớp cột tiền vào */
+  --color-danger-text: #9d174d; /* số trừ */
 
   --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
+/*
+  Vật liệu kính. Gom thành biến riêng chứ không nhét vào @theme: đây là công
+  thức nhiều lớp (nền + làm mờ + mép sáng), không phải một màu.
+*/
 :root {
   color-scheme: light;
+
+  /*
+    Kính KHÓI: lớp phủ tím-đen, không phải lớp trắng. 0.60 là vạch dưới — mỏng
+    hơn thì mặt thẻ ở chỗ gradient sáng nhất bị đẩy lên quá sáng và chữ mờ tụt
+    dưới AA (xem `npm run check-palette -- --dark`).
+  */
+  --glass-fill: rgba(255, 255, 255, 0.42);
+  /*
+    Thanh nổi đè lên nội dung đang cuộn phải ĐẶC hơn hẳn thẻ thường, nếu không
+    chữ trôi qua phía sau sẽ đọc xuyên lên mặt kính. Lý do là backdrop-filter
+    kẹp mẫu ở mép phần tử nên vùng sát viền gần như không được làm mờ — tăng
+    blur không cứu được, phải tăng độ đặc.
+  */
+  --glass-fill-strong: rgba(255, 255, 255, 0.93);
+  /*
+    Sheet nằm TRÊN lớp phủ tối, và lớp phủ đó có backdrop-filter nên nó thành
+    "backdrop root": sheet chỉ lấy mẫu được nền của chính lớp phủ chứ không lấy
+    được trang phía sau. Đây là ca mà phép trộn alpha trên giấy không đoán được
+    (bản nền sáng từng lệch từ #f2f1f4 dự đoán sang #d5d4d5 thực tế), nên sheet
+    phải gần đục hẳn thay vì dùng chung độ trong với thẻ.
+  */
+  --glass-edge: rgba(255, 255, 255, 0.75);
+
+  /*
+    saturate() mới là thứ làm nên "kính" chứ không phải blur. Blur không thôi
+    cho ra lớp sương xám; đẩy bão hoà lên thì màu nền ánh xuyên qua và giữ được
+    sắc tím, đúng cách iOS dựng vật liệu này.
+  */
+  --glass-blur: blur(24px) saturate(170%);
+
+  /*
+    Vệt sáng chéo đọng ở góc trên-trái, như ánh sáng hắt trên một tấm kính thật.
+    Đây là thứ tách "kính" khỏi "nhựa mờ": chỉ có blur thì mặt phẳng lì, có vệt
+    sáng thì mắt đọc ra một bề mặt có hướng chiếu sáng.
+    Làm bằng background-image chứ không phải pseudo-element — .card được dùng
+    cho cả panel có overflow-hidden và p-0, chèn thêm con vào là vỡ layout.
+  */
+  /*
+    DẢI MÀU DÙNG CHUNG cho mọi mảng đặc: nút, thanh tiến độ, logo. Cùng chiều
+    tím→hồng với gradient nền nên cả trang đọc ra một hệ, không phải vài mảng
+    màu rời rạc dán lên nhau.
+    Nghiêng hẳn về hồng, chỉ chớm tím ở đầu dải để còn nối với góc tím của nền.
+    Chặng CHỐT ngưỡng là chặng hồng cuối #d61f6d: thanh đạt 3.21 trên nền thẻ
+    (cần 3.0), chữ trắng trên nút đạt 4.91 (cần 4.5). Nhạt hơn chặng đó là
+    2.93 / 4.48, trượt cả hai.
+    Hai chặng đầu thì đổi thoải mái — chúng luôn đậm hơn chặng cuối nên không
+    ảnh hưởng ngưỡng; muốn thêm hay bớt tím thì chỉnh ở đó.
+  */
+  --ramp: linear-gradient(135deg, #a21caf 0%, #c0208d 45%, #d61f6d 100%);
+
+  /*
+    Gradient nền trang, tách thành biến vì bề mặt nổi (sheet, dropdown) dùng lại
+    đúng nó — có vậy màu trên panel mới liền mạch với màu quanh nó, thay vì
+    panel tự chuyển màu theo chiều riêng của mình.
+    Chỉ chứa các lớp gradient; màu lót --color-plane đặt riêng ở background-color.
+  */
+  /*
+    Dải cho CHỮ và ICON. Khác --ramp (dùng cho mảng đặc) ở chỗ hai chặng đều đủ
+    đậm để đọc: chữ gradient vẫn phải đạt 4.5 ở MỌI điểm, mà đầu hồng của --ramp
+    (#d61f6d) chỉ được ~3.2 trên nền panel — dùng --ramp làm chữ là chữ mờ dần
+    tới mức không đọc nổi ở đuôi.
+    Trỏ sang chính hai token màu tím/hồng đang dùng cho tiền vào/tiền ra, nên
+    chỉnh màu ở đó thì dải này tự theo.
+  */
+  /* Bản nhạt của --ramp-ink, dùng cho viền lúc nghỉ. */
+  /*
+    Nền lúc rê chuột. Ngả TÍM chứ không phải trắng thêm: nền trang vốn đã sáng
+    nên "sáng dần về trắng" gần như vô hình (đo được #ffe9ff → #fffcff, mắt
+    không bắt ra). Đục hẳn để tương phản chữ đoán được, không phụ thuộc chỗ
+    phần tử đứng trên gradient.
+  */
+  --hover-fill: color-mix(in srgb, var(--color-expense) 12%, #ffffff);
+
+  --ramp-ink-soft: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--color-expense) 38%, transparent) 0%,
+    color-mix(in srgb, var(--color-danger-text) 38%, transparent) 100%
+  );
+
+  --ramp-ink: linear-gradient(
+    100deg,
+    var(--color-expense) 0%,
+    var(--color-danger-text) 100%
+  );
+
+  --page-gradient:
+    radial-gradient(120% 70% at 50% 42%, rgba(255, 255, 255, 0.8), transparent 76%),
+    radial-gradient(74% 52% at -6% -4%, rgba(168, 85, 247, 0.7), transparent 64%),
+    radial-gradient(70% 48% at 104% 4%, rgba(232, 121, 249, 0.9), transparent 72%),
+    radial-gradient(58% 40% at 100% 60%, rgba(236, 72, 153, 0.6), transparent 72%),
+    radial-gradient(92% 46% at 48% 106%, rgba(219, 39, 119, 0.6), transparent 70%);
+
+  /*
+    Màn trắng phủ LÊN TRÊN gradient nền cho bề mặt nổi. Phải là một lớp
+    background-image khai báo trước, không dùng background-color được — màu nền
+    luôn nằm DƯỚI mọi lớp ảnh nên sẽ phủ không tới.
+
+    0.60 chứ không dày hơn: đây là thứ quyết định panel ăn bao nhiêu màu của
+    nền. Ở 0.88 panel ra gần trắng (#fdf6fa), nhìn lại thành mảng dán thêm.
+    Panel ĐỤC hoàn toàn nhờ background-color bên dưới, nên hạ màn trắng không
+    hề làm chữ phía sau đọc xuyên lên — chỉ có tương phản chữ TRÊN panel là
+    ràng buộc, và ở mức này còn dư nhiều (thấp nhất 5.99).
+  */
+  --surface-veil: linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.6));
+
+  --glass-sheen: linear-gradient(
+    157deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.14) 33%,
+    rgba(255, 255, 255, 0) 58%
+  );
+
+  /*
+    Bốn lớp, mỗi lớp một việc — bóng một lớp thì hoặc mờ tịt hoặc bệt như hộp:
+      1. mép sáng cạnh trên: ánh sáng đọng ở rìa, thứ làm kính ra vật thể cong
+      2. viền trong mảnh: dựng cạnh tấm kính, tách nó khỏi nền
+      3. bóng tiếp xúc sát: neo thẻ xuống mặt nền
+      4. bóng toả rộng: độ cao thật sự
+
+    Lớp 4 từng để spread -14px nên bị co gần hết, nhìn như không có bóng. -6px
+    mới thấy. Trên nền tối bóng phải là ĐEN thật và đậm hơn hẳn bản nền sáng:
+    bóng nhạt trên nền tối thì mắt không thấy gì, thẻ dính bẹt vào nền.
+  */
+  --glass-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 2px 6px rgba(76, 14, 88, 0.12),
+    0 14px 34px -6px rgba(76, 14, 88, 0.32);
 }
 
 body {
@@ -54,6 +242,37 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+  Nền gradient tím. Đặt trên pseudo-element position:fixed chứ không dùng
+  background-attachment: fixed — Safari trên iOS vẽ lại nền mỗi khung hình khi
+  cuộn với thuộc tính đó, cuộn thành giật.
+  z-index -1 để nằm dưới mọi nội dung; body vẫn giữ màu nền đặc làm lớp lót cho
+  trình duyệt không hỗ trợ.
+*/
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  /*
+    Vệt sáng nhất là tím #a855f7 ở mức 0.75 — đúng con số mà
+    scripts/validate-palette.mjs lấy làm trường hợp xấu nhất. Sáng hơn nữa thì
+    chữ mờ trên mặt kính tụt dưới AA.
+    Xanh chàm ở góc phải giữ đúng chất hình mẫu: gradient đi từ tím sang chàm
+    chứ không phải một sắc tím đơn điệu.
+  */
+  /*
+    Hồng cánh sen chiếm phần lớn, tím chỉ còn một vệt ở góc trái làm điểm tựa —
+    gradient toàn hồng một sắc thì bẹt, có chút tím thì mới ra chiều sâu.
+    Quầng sáng ở GIỮA khai báo trước nên nằm trên cùng: thẻ nằm trong cột giữa
+    nên chữ vẫn đủ tương phản, còn rìa không có chữ thì tha hồ đậm. Nền đậm đều
+    một màu thì phải nhạt đi rất nhiều mới đọc được.
+  */
+  background-image: var(--page-gradient);
+  background-color: var(--color-plane);
 }
 
 /* Ẩn mũi tên tăng/giảm của input[type=number] cho gọn */
@@ -64,16 +283,221 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 @utility card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-hairline);
-  border-radius: 0.875rem;
-  box-shadow:
-    0 1px 2px rgba(11, 11, 11, 0.04),
-    0 1px 1px rgba(11, 11, 11, 0.02);
+  background: var(--glass-sheen), var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: 1.25rem; /* bo sâu hơn trước: kính mỏng mà góc nhọn thì trông như giấy */
+  box-shadow: var(--glass-shadow);
   transition:
     border-color 0.2s ease,
     box-shadow 0.25s ease,
     transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+  Thanh/nút NỔI đè lên nội dung đang cuộn: đặc hơn thẻ thường và làm mờ mạnh
+  hơn. Cùng độ trong như thẻ thì chữ bên dưới trôi qua sẽ đọc xuyên lên.
+*/
+@utility glass-bar {
+  background: var(--glass-sheen), var(--glass-fill-strong);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--glass-shadow);
+}
+
+/*
+  Nút nhỏ ở đầu trang. Đầu trang KHÔNG sticky nên không có nội dung nào trôi
+  phía sau nó — nhờ vậy được phép trong như thẻ (0.60) thay vì đặc như viên
+  thuốc chọn tháng. Bóng cũng nhẹ hơn: vật nhỏ mà bóng to bằng thẻ thì trông
+  như đang lơ lửng cách mặt nền cả gang tay.
+*/
+@utility glass-chip {
+  background: var(--glass-sheen), var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 2px 9px -2px rgba(76, 14, 88, 0.26);
+}
+
+/*
+  Không có backdrop-filter (Firefox khi người dùng tắt, WebView cũ) thì lớp
+  trắng mỏng chồng lên gradient tím sẽ để chữ nền lộ xuyên qua. Đổ nền đặc.
+*/
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .card,
+  .glass-chip,
+  .glass-bar {
+    background: var(--color-surface);
+    border-color: var(--color-hairline);
+  }
+}
+
+/*
+  Dùng kèm .card cho bottom sheet. Để ngoài @layer utilities (không dùng
+  @utility) nên chắc chắn thắng nền của .card, không phụ thuộc thứ tự class.
+*/
+/*
+  Ruột thanh tiến độ: cùng dải màu với nút, chạy ngang theo chiều thanh dài ra.
+  Chỉ dùng cho thanh mang nghĩa "chi tiêu bình thường" — trạng thái sắp vượt /
+  đã vượt hạn mức vẫn giữ màu cảnh báo đặc, vì ở đó MÀU là thông tin, không
+  phải trang trí.
+*/
+/*
+  Chữ và icon tô bằng dải màu. Nếu trình duyệt không hỗ trợ background-clip:text
+  thì `color: transparent` sẽ làm chữ BIẾN MẤT — nên đặt trong @supports, ngoài
+  khối đó chữ giữ màu đặc bình thường.
+*/
+@supports ((background-clip: text) or (-webkit-background-clip: text)) {
+  .text-ramp {
+    background-image: var(--ramp-ink);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    /*
+      Bắt buộc: gạch chân và con trỏ nhập lấy màu theo `color`, mà color ở đây
+      là transparent — không chỉ định riêng thì gạch chân biến mất.
+    */
+    text-decoration-color: var(--color-expense);
+    caret-color: var(--color-expense);
+  }
+}
+
+/*
+  VIỀN gradient. Hai cách thông dụng đều KHÔNG dùng được ở đây:
+   - border-image: bỏ qua border-radius, góc thành vuông.
+   - xếp hai lớp nền (padding-box + border-box): chỉ đúng khi mặt phần tử ĐỤC.
+     Mặt kính ở đây trong 42% nên dải màu lộ xuyên qua cả ruột, không chỉ viền.
+  Còn lại cách này: một lớp phủ trải kín, rồi khoét rỗng phần ruột bằng mask —
+  chỉ chừa lại đúng vành ngoài dày --ramp-border-w.
+  Phần tử phải bo góc bằng border-radius để `inherit` lấy đúng góc, và không
+  được có overflow-hidden cắt mất lớp phủ.
+*/
+@utility ring-ramp {
+  position: relative;
+}
+
+/* .liftable (thẻ bấm được) dùng chung đúng cơ chế vành với .ring-ramp. */
+.liftable {
+  position: relative;
+}
+
+/*
+  Cùng cơ chế vành, nhưng hiện THƯỜNG TRỰC ở mức nhạt. Dùng cho khung bao và
+  nút đứng một mình — những thứ cần ranh giới rõ để biết nó tới đâu.
+  Khác với .ring-ramp (nút trên nền kính): ở đó nền kính đã tự có viền và bóng
+  nên bỏ vành lúc nghỉ vẫn nhìn ra hình khối, còn ở đây bỏ đi là mất trắng.
+*/
+@utility frame-ramp {
+  position: relative;
+}
+
+/*
+  Nền sáng lên khi rê chuột — đi kèm với vành, hai thứ luôn xuất hiện cùng nhau.
+  Chỉ đổi background-color nên lớp vệt sáng của kính vẫn còn nguyên.
+
+  Với .frame-ramp thì lọc theo :is(button, a, ...): loại này còn dùng cho KHUNG
+  BAO (khung hai tab Tiền ra/Tiền vào) — khung không bấm được mà đổi nền khi rê
+  chuột ngang qua thì trông như hỏng.
+*/
+.ring-ramp:hover,
+:is(button, a, [role="button"]).frame-ramp:hover {
+  background-color: var(--hover-fill);
+}
+
+/*
+  Bọc trong @supports: không có mask-composite thì lớp phủ KHÔNG bị khoét ruột
+  và biến thành mảng gradient che kín cả nút — hỏng nặng hơn là không có viền.
+  Ngoài khối này, phần tử giữ nguyên viền kính bình thường của glass-chip.
+*/
+@supports ((mask-composite: exclude) or (-webkit-mask-composite: xor)) {
+  .ring-ramp::before,
+  .frame-ramp::before,
+  .liftable::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: var(--ramp-border-w, 1px);
+    background: var(--ramp-ink);
+    /* Hai lớp mask chồng nhau rồi loại trừ nhau: kết quả là chỉ còn phần vành. */
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+    /*
+      Nghỉ thì KHÔNG hiện vành. Trước đây để 0.55 nên mọi nút lúc nào cũng viền
+      gradient, nhìn rối và mất hẳn tín hiệu "cái này đang được trỏ tới".
+      Vành chỉ bật khi rê chuột, hoặc khi panel của nó đang mở.
+    */
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  /*
+    Rê chuột, hoặc panel đang mở, thì vành sáng rõ lên — thay cho việc đổi
+    border-color như trước. is-ringed là trạng thái "đang mở", giữ vành sáng cả
+    khi chuột đã rời đi.
+  */
+  /*
+    0.6 chứ không phải 1: dải màu đặc làm viền trông nặng như kẻ chì, át cả nội
+    dung bên trong. Mờ bớt thì vẫn đọc ra là "đang trỏ tới đây" mà không tranh
+    chỗ với chữ.
+  */
+  .frame-ramp::before {
+    opacity: 0.4;
+  }
+
+  .ring-ramp:hover::before,
+  .frame-ramp:hover::before,
+  .liftable:hover::before,
+  .ring-ramp.is-ringed::before,
+  .is-open::before {
+    opacity: 0.6;
+  }
+}
+
+@utility bar-fill {
+  /*
+    Vẽ TRỌN dải trong bề ngang của chính thanh, giống hệt cách logo làm — thanh
+    nào cũng chạy đủ hồng-sen sang hồng-đào, không phụ thuộc nó nằm đâu trên
+    màn hình.
+    (Bản trước neo theo khung nhìn để ăn màu nền; đổi lại theo yêu cầu vì như
+    thế mỗi thanh chỉ hứng một lát của dải nên ra gần như một sắc.)
+  */
+  background-image: var(--ramp);
+}
+
+/*
+  Panel NỔI đè lên nội dung: dropdown tài khoản, hộp thư thông báo, bảng chọn
+  tháng. Phải gần ĐỤC. Để cùng độ trong với thẻ thì chữ nằm dưới đọc xuyên lên
+  mặt panel — đúng lỗi đã gặp ở viên thuốc chọn tháng. backdrop-filter không
+  cứu được vì nó kẹp mẫu ở mép phần tử, vùng sát viền gần như không được làm mờ.
+  Để ngoài @layer utilities nên chắc chắn thắng nền của .card.
+*/
+.overlay-surface,
+.sheet-surface {
+  /*
+    Lấy ĐÚNG gradient của nền trang rồi phủ màn trắng lên, và neo theo khung
+    nhìn — nên màu trên panel chính là màu nền tại chỗ panel đứng, liền một mạch
+    với xung quanh. Trước đây panel chạy gradient riêng từ sáng xuống đậm, nhìn
+    ra ngay là mảng dán thêm.
+    Mọi lớp cùng một cách neo nên chỉ cần khai báo một giá trị, trình duyệt tự
+    lặp cho từng lớp.
+  */
+  background-image: var(--surface-veil), var(--page-gradient);
+  background-color: var(--color-plane);
+  background-attachment: fixed;
+  background-size: 100vw 100vh;
+  background-position: center;
 }
 
 /* ---------------------------------------------------------------
@@ -82,26 +506,25 @@ input[type="number"]::-webkit-outer-spin-button {
    không tồn tại.
    --------------------------------------------------------------- */
 
-/* Thẻ bấm được: viền ngả hồng và nhấc nhẹ 1px. */
+/* Thẻ bấm được: kính sáng lên, viền ngả tím và nhấc nhẹ 1px. */
 .liftable:hover {
-  border-color: rgba(214, 51, 108, 0.35);
+  background: var(--glass-sheen), var(--hover-fill);
   box-shadow:
-    0 8px 20px -10px rgba(194, 37, 92, 0.3),
-    0 1px 2px rgba(11, 11, 11, 0.04);
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 16px 36px -12px rgba(76, 14, 88, 0.42);
   transform: translateY(-1px);
 }
 
 .liftable:active {
   transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(11, 11, 11, 0.04);
+  box-shadow: var(--glass-shadow);
 }
 
-/* Nhóm đang mở: viền hồng nhạt để mắt biết đang đọc khối nào. */
+/* Nhóm đang mở: viền tím nhạt để mắt biết đang đọc khối nào. */
 .is-open {
-  border-color: rgba(214, 51, 108, 0.3);
   box-shadow:
-    0 4px 14px -8px rgba(194, 37, 92, 0.22),
-    0 1px 2px rgba(11, 11, 11, 0.04);
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 10px 26px -12px rgba(76, 14, 88, 0.34);
 }
 
 /*
@@ -110,7 +533,7 @@ input[type="number"]::-webkit-outer-spin-button {
   component nào cần vẫn ghi đè được.
 */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid var(--color-brand);
+  outline: 2px solid var(--color-expense);
   outline-offset: 2px;
 }
 
@@ -137,10 +560,36 @@ input[type="number"]::-webkit-outer-spin-button {
   cursor: not-allowed;
 }
 
-/* Nút nền đậm (nút chính): sáng lên và nhấc nhẹ khi rê chuột. */
+/*
+  Nút nền đậm (nút chính). Vệt sáng chạy dọc mép trên là thứ tách "nút màu
+  phẳng" khỏi "viên kính đặc" — ánh sáng đọng ở cạnh trên như vật thể cong.
+*/
+/*
+  Mọi nút nền đặc trong app đều mang class bg-brand, nên gắn dải màu ở đây là
+  phủ hết một lượt: nút thêm giao dịch, nút Lưu, ô tháng/ngày đang chọn.
+  Không dùng :where cho phần nền vì cần thắng background-color của tiện ích
+  bg-brand; box-shadow thì vẫn để độ ưu tiên thấp cho component ghi đè được.
+*/
+.bg-brand {
+  /* Vệt sáng mép trên chồng lên dải màu: nút phát sáng chứ không chỉ đổ bóng. */
+  background-image:
+    linear-gradient(170deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 55%),
+    var(--ramp);
+}
+
+:where(button, a).bg-brand {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 4px 12px -2px rgba(134, 25, 143, 0.45),
+    0 12px 30px -6px rgba(134, 25, 143, 0.5);
+}
+
 :where(button:not(:disabled)).bg-brand:hover {
-  filter: brightness(1.08);
-  box-shadow: 0 6px 16px -6px rgba(194, 37, 92, 0.45);
+  filter: brightness(1.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 6px 16px -2px rgba(134, 25, 143, 0.5),
+    0 18px 40px -6px rgba(134, 25, 143, 0.6);
 }
 
 :where(button:not(:disabled)).bg-brand:active {
@@ -190,9 +639,14 @@ input[type="number"]::-webkit-outer-spin-button {
     transform: translateY(-4px);
     clip-path: inset(0 0 100% 0);
   }
+  /*
+    KHÔNG khai báo transform ở đây. Với fill-mode both, `transform: translateY(0)`
+    bám lại sau khi chạy xong, mà transform khác none biến panel thành mốc neo
+    của chính nó — nền neo-theo-khung-nhìn hết tác dụng và panel quay về tự
+    chuyển màu một mình. Bỏ trống thì nó nội suy về giá trị gốc (none).
+  */
   to {
     opacity: 1;
-    transform: translateY(0);
     clip-path: inset(0 0 0 0);
   }
 }
@@ -299,9 +753,26 @@ input[type="number"]::-webkit-outer-spin-button {
 @utility field {
   width: 100%;
   min-height: 2.5rem;
-  border-radius: 0.625rem;
-  border: 1px solid var(--color-axis);
-  background: var(--color-surface);
+  border-radius: 0.75rem;
+  /*
+    Viền gradient. KHÔNG dùng được cơ chế vành bằng ::before như các nút: input
+    và select là phần tử thay thế, chúng không có pseudo-element.
+    Cách còn lại là xếp hai lớp nền — lớp màu mặt dừng ở padding-box, lớp dải
+    màu trải tới border-box, phần lòi ra đúng bằng bề dày viền. Cách này CHỈ
+    đúng khi mặt phần tử đục, mà ô nhập thì đúng là đục (xem ghi chú dưới).
+  */
+  border: 1px solid transparent;
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  /*
+    Ô nhập để nền ĐỤC, không dùng kính như thẻ. Chữ người dùng đang gõ là thứ
+    phải đọc chắc chắn nhất trên màn hình; cho gradient tím lởn vởn phía sau
+    con trỏ là đánh đổi sai chỗ.
+  */
+  background-color: var(--color-surface);
+  background-image:
+    linear-gradient(var(--color-surface), var(--color-surface)),
+    var(--ramp-ink-soft);
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   line-height: 1.35;
@@ -341,9 +812,12 @@ input[type="number"]::-webkit-outer-spin-button {
   }
 }
 
+/* Đang gõ thì dải màu ở viền đậm hẳn lên, kèm quầng sáng ra ngoài. */
 .field:focus {
-  border-color: var(--color-expense);
-  box-shadow: 0 0 0 3px rgba(214, 51, 108, 0.16);
+  background-image:
+    linear-gradient(var(--color-surface), var(--color-surface)),
+    var(--ramp-ink);
+  box-shadow: 0 0 0 3px rgba(162, 28, 175, 0.18);
 }
 
 /* Ô nhập đã có vòng hồng bo theo góc của chính nó rồi; để thêm outline chung
