@@ -8,7 +8,7 @@ import { Logo } from "./Logo";
  * cùng một việc mà hai bộ mặt.
  */
 export const HEADER_BUTTON =
-  "border-hairline text-ink-2 hover:bg-expense/8 hover:border-expense/30 rounded-lg border px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition active:scale-[0.97] disabled:opacity-40";
+  "glass-chip ring-ramp text-ink-2 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition active:scale-[0.97] disabled:opacity-40";
 
 interface Props {
   title: string;

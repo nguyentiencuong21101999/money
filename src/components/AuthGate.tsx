@@ -32,7 +32,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={signIn}
-            className="border-hairline hover:border-expense/40 hover:bg-expense/8 mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-medium transition active:scale-[0.98]"
+            className="glass-chip ring-ramp mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium transition active:scale-[0.98]"
           >
             <GoogleMark />
             Đăng nhập bằng Google
@@ -70,7 +70,7 @@ function SetupNotice() {
           <li>
             Lấy Gemini API key ở{" "}
             <a
-              className="text-expense underline"
+              className="text-ramp underline"
               href="https://aistudio.google.com/apikey"
               target="_blank"
               rel="noreferrer"
@@ -81,7 +81,7 @@ function SetupNotice() {
           <li>
             Tạo project ở{" "}
             <a
-              className="text-expense underline"
+              className="text-ramp underline"
               href="https://console.firebase.google.com"
               target="_blank"
               rel="noreferrer"

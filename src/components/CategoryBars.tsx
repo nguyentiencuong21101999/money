@@ -29,8 +29,11 @@ export function CategoryBars({ slices }: { slices: CategorySlice[] }) {
         {slices.map((slice, index) => (
           <li
             key={slice.category}
-            /* Nền hover rất nhạt: đủ để mắt bám dòng khi dò số, nhưng không
-               có con trỏ tay / viền nút để khỏi hứa hẹn một hành động không có. */
+            /* Nền hover rất nhạt: đủ để mắt bám dòng khi dò số, nhưng KHÔNG có
+               con trỏ tay và KHÔNG có vành gradient — dòng này không bấm được,
+               cho nó bộ mặt của nút là hứa hẹn một hành động không tồn tại.
+               Đây là ngoại lệ có chủ ý so với quy tắc "hover thì có nền + viền"
+               áp cho mọi thứ bấm được trong app. */
             className="hover:bg-expense/8 -mx-1.5 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 rounded-lg px-1.5 py-1 transition-colors"
           >
             <span className="flex min-w-0 items-center gap-1.5 text-sm">
@@ -45,7 +48,7 @@ export function CategoryBars({ slices }: { slices: CategorySlice[] }) {
             </span>
             <span className="col-span-2 block h-2.5">
               <span
-                className="bg-expense animate-grow-x block h-full rounded-r"
+                className="bar-fill animate-grow-x block h-full rounded-r"
                 style={{
                   width: `${Math.max(1.5, slice.share * 100)}%`,
                   /* So le nhẹ để mắt đọc thứ tự giảm dần; chặn trần 300ms

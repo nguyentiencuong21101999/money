@@ -29,7 +29,7 @@ export function Manager() {
 
       {users.length === 0 ? (
         <div className="card animate-pop px-5 py-12 text-center">
-          <UsersIcon size={32} className="text-expense/55 mx-auto" />
+          <UsersIcon size={32} gradient className="mx-auto opacity-60" />
           <p className="mt-2 text-sm font-medium">
             {loading ? "Đang tải…" : "Chưa có ai trong danh sách"}
           </p>

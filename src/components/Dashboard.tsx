@@ -154,8 +154,11 @@ export function Dashboard() {
         </div>
       </header>
 
-      {/* Một hàng filter duy nhất, đặt trên mọi biểu đồ mà nó chi phối. */}
-      <div className="bg-plane/85 sticky top-0 z-20 -mx-4 mb-4 flex justify-center px-4 py-2 backdrop-blur">
+      {/* Một hàng filter duy nhất, đặt trên mọi biểu đồ mà nó chi phối.
+          Trước đây cả dải ngang phủ một lớp nền mờ chạy hết bề rộng; giờ chính
+          MonthPicker là viên kính nên dải nền đó thừa — bỏ đi thì nội dung cuộn
+          trôi phía sau viên thuốc, đúng cách iOS xếp lớp. */}
+      <div className="sticky top-2 z-20 mb-4 flex justify-center">
         <MonthPicker month={month} onChange={setMonth} />
       </div>
 
@@ -200,13 +203,13 @@ export function Dashboard() {
       <button
         type="button"
         onClick={() => setSheet({ mode: "add" })}
-        className="bg-brand animate-pop fixed bottom-6 left-1/2 z-30 -translate-x-1/2 rounded-full px-6 py-3.5 text-sm font-semibold text-white shadow-[0_6px_20px_-4px_rgba(194,37,92,0.45)] transition hover:brightness-110 active:scale-95"
+        className="bg-brand animate-pop fixed bottom-6 left-1/2 z-30 -translate-x-1/2 rounded-full px-6 py-3.5 text-sm font-semibold text-white transition active:scale-95"
       >
         + Thêm giao dịch
       </button>
 
       {scanning && (
-        <div className="animate-fade fixed inset-0 z-40 flex items-center justify-center bg-black/25 backdrop-blur-[2px]">
+        <div className="animate-fade fixed inset-0 z-40 flex items-center justify-center bg-black/30 backdrop-blur-md">
           <p className="card animate-pop flex items-center gap-2.5 px-5 py-3.5 text-sm font-medium shadow-lg">
             <span className="border-expense/25 border-t-expense h-4 w-4 animate-spin rounded-full border-2" />
             Đang đọc hoá đơn…

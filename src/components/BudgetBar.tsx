@@ -89,7 +89,9 @@ export function BudgetBar({ uid, month, limit, spent }: Props) {
 
   const ratio = spent / limit;
   const state = ratio > 1 ? "over" : ratio >= WARN_AT ? "near" : "ok";
-  const fill = { ok: "bg-expense", near: "bg-warning", over: "bg-critical" }[state];
+  // Chỉ trạng thái bình thường mới dùng dải màu trang trí. Sắp vượt / đã vượt
+  // giữ màu cảnh báo ĐẶC: ở đó màu là thông tin, phủ gradient lên là làm loãng.
+  const fill = { ok: "bar-fill", near: "bg-warning", over: "bg-critical" }[state];
   const remaining = limit - spent;
 
   return (

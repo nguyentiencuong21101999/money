@@ -1,5 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Sổ tiền">
-  <rect width="64" height="64" rx="15" fill="#c2255c"/>
+  <defs>
+    <linearGradient id="logo-ramp" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a21caf"/>
+      <stop offset="45%" stop-color="#c0208d"/>
+      <stop offset="100%" stop-color="#d61f6d"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#logo-ramp)"/>
   <!--
     Dấu ₫ vẽ bằng path thay vì <text>: chữ ₫ thiếu trong nhiều font hệ thống,
     để dạng text thì máy nào không có font sẽ hiện ô vuông.

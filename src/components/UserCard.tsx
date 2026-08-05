@@ -56,7 +56,7 @@ export function UserAvatar({ profile, size = 40 }: { profile: UserProfile; size?
   return (
     <span
       aria-hidden="true"
-      className="bg-expense flex shrink-0 items-center justify-center rounded-full font-semibold text-white"
+      className="bar-fill flex shrink-0 items-center justify-center rounded-full font-semibold text-white"
       style={{ width: size, height: size, fontSize: size * 0.4 }}
     >
       {source[0]?.toUpperCase() ?? "?"}

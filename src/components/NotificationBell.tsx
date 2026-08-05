@@ -61,15 +61,13 @@ export function NotificationBell({ uid }: { uid: string }) {
         aria-label={unread > 0 ? `Thông báo, ${unread} chưa đọc` : "Thông báo"}
         // Cùng px/py với các nút chữ bên cạnh nên cao y nhau, không phải
         // ép h-[30px] rồi cầu mong nó khớp.
-        className={`relative rounded-lg border px-2 py-1.5 transition active:scale-[0.97] ${
-          open
-            ? "border-expense/45 bg-surface"
-            : "border-hairline hover:border-expense/30 hover:bg-expense/8"
+        className={`glass-chip ring-ramp rounded-full px-2.5 py-1.5 transition active:scale-[0.97] ${
+          open ? "is-ringed" : ""
         }`}
       >
-        <BellIcon size={17} className="text-expense" />
+        <BellIcon size={17} gradient />
         {unread > 0 && (
-          <span className="bg-expense absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white tabular-nums">
+          <span className="bar-fill absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white tabular-nums">
             {unread > 99 ? "99+" : unread}
           </span>
         )}
@@ -79,7 +77,7 @@ export function NotificationBell({ uid }: { uid: string }) {
         <div
           ref={panel}
           role="menu"
-          className="card animate-drop border-expense/25 absolute top-full right-0 z-40 mt-2 w-[min(21rem,calc(100vw-2rem))] origin-top-right overflow-hidden p-0 shadow-lg"
+          className="card overlay-surface animate-drop border-expense/25 absolute top-full right-0 z-40 mt-2 w-[min(21rem,calc(100vw-2rem))] origin-top-right overflow-hidden p-0 shadow-lg"
         >
           <div className="flex items-center justify-between gap-3 px-4 py-3">
             <p className="text-sm font-semibold">
@@ -94,7 +92,7 @@ export function NotificationBell({ uid }: { uid: string }) {
               <button
                 type="button"
                 onClick={() => void markAllRead(uid).catch((e) => console.error("[noti]", e))}
-                className="text-expense hover:text-brand shrink-0 text-xs font-medium underline underline-offset-2"
+                className="text-ramp shrink-0 text-xs font-medium underline underline-offset-2 hover:brightness-90"
               >
                 Đọc tất cả
               </button>

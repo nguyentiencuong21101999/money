@@ -53,7 +53,7 @@ export function MonthGrid({ value, min, max, highlight, onPick }: GridProps) {
               onClick={() => onPick(month)}
               className={`rounded-lg py-2 text-sm font-medium transition duration-150 active:scale-[0.96] ${
                 selected
-                  ? "bg-brand text-white shadow-[0_4px_12px_-4px_rgba(194,37,92,0.5)]"
+                  ? "bg-brand text-white"
                   : blocked
                     ? "text-muted/40 cursor-not-allowed"
                     : month === highlight
@@ -129,7 +129,7 @@ export function MonthSelect({ label, value, min, max, onChange }: SelectProps) {
           ref={panel}
           role="dialog"
           aria-label={label}
-          className="card animate-drop border-expense/25 absolute top-full left-0 z-40 mt-1.5 w-60 p-3 shadow-lg"
+          className="card overlay-surface animate-drop border-expense/25 absolute top-full left-0 z-40 mt-1.5 w-60 p-3 shadow-lg"
         >
           <MonthGrid
             value={value}
@@ -163,7 +163,7 @@ export function Arrow({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="text-ink-2 hover:bg-expense/8 hover:text-expense h-7 w-7 shrink-0 rounded-lg text-lg leading-none transition duration-150 active:scale-90 disabled:opacity-30 disabled:hover:bg-transparent"
+      className="text-ink-2 hover:bg-expense/10 hover:text-expense h-7 w-7 shrink-0 rounded-full text-lg leading-none transition duration-150 active:scale-90 disabled:opacity-30 disabled:hover:bg-transparent"
     >
       {children}
     </button>

@@ -73,7 +73,7 @@ export function PushToggle({ uid }: { uid: string }) {
               locked ? "text-muted" : ""
             }`}
           >
-            <BellIcon size={16} className={locked ? "" : "text-expense"} />
+            <BellIcon size={16} gradient={!locked} />
             Thông báo
           </p>
           {/* Chỉ nói khi có gì cần nói: đang bật/tắt, hoặc trình duyệt chặn.
@@ -91,7 +91,7 @@ export function PushToggle({ uid }: { uid: string }) {
           onClick={toggle}
           disabled={working || locked}
           className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ease-out active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 ${
-            on ? "bg-expense" : "bg-axis"
+            on ? "bar-fill" : "bg-axis"
           }`}
         >
           {/* Núm chạy bằng transform nên không gây reflow, khớp với nguyên tắc

@@ -6,10 +6,13 @@
 function Icon({
   size = 18,
   className,
+  gradient,
   children,
 }: {
   size?: number;
   className?: string;
+  /** Tô nét bằng dải tím→hồng thay vì một màu đặc. */
+  gradient?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -18,19 +21,33 @@ function Icon({
       height={size}
       viewBox="0 0 24 24"
       fill="none"
-      stroke="currentColor"
+      stroke={gradient ? "url(#icon-ramp)" : "currentColor"}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
       className={`shrink-0 ${className ?? ""}`}
     >
+      {gradient && (
+        <defs>
+          {/*
+            Hai chặng khớp --ramp-ink trong globals.css. Phải khai báo TRONG
+            từng SVG vì gradient của SVG không nhận được biến CSS qua thuộc
+            tính stroke. Nhiều icon trên cùng trang sẽ trùng id, trình duyệt lấy
+            <defs> đầu tiên — vô hại vì mọi bản đều giống hệt nhau.
+          */}
+          <linearGradient id="icon-ramp" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="var(--color-expense)" />
+            <stop offset="100%" stopColor="var(--color-danger-text)" />
+          </linearGradient>
+        </defs>
+      )}
       {children}
     </svg>
   );
 }
 
-export function BellIcon(props: { size?: number; className?: string }) {
+export function BellIcon(props: { size?: number; className?: string; gradient?: boolean }) {
   return (
     <Icon {...props}>
       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -39,7 +56,7 @@ export function BellIcon(props: { size?: number; className?: string }) {
   );
 }
 
-export function UsersIcon(props: { size?: number; className?: string }) {
+export function UsersIcon(props: { size?: number; className?: string; gradient?: boolean }) {
   return (
     <Icon {...props}>
       <path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />

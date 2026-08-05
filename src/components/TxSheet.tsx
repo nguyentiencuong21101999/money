@@ -153,12 +153,14 @@ export function TxSheet({
 
   return (
     <div
-      className="animate-fade fixed inset-0 z-50 flex items-end justify-center bg-black/35 sm:items-center"
+      className="animate-fade fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-md sm:items-center"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       {/* Trên điện thoại đây là bottom sheet nên trượt lên từ đáy; từ sm trở lên
           nó nằm giữa màn hình như hộp thoại nên bật ra tại chỗ hợp lý hơn. */}
-      <div className="card animate-sheet sm:animate-pop max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-b-none p-5 sm:rounded-b-2xl">
+      {/* Bán kính khớp đúng .card (1.25rem): để nguyên rounded-b-2xl thì hai góc
+          dưới hụt so với hai góc trên, nhìn ra ngay ở màn hình rộng. */}
+      <div className="card sheet-surface animate-sheet sm:animate-pop max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-b-none p-5 sm:rounded-b-[1.25rem]">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">
             {editing ? "Sửa giao dịch" : "Thêm giao dịch"}
@@ -182,7 +184,7 @@ export function TxSheet({
         </div>
 
         <div className="mt-4 space-y-3.5">
-          <div className="border-hairline grid grid-cols-2 gap-1 rounded-xl border p-1">
+          <div className="frame-ramp grid grid-cols-2 gap-1 rounded-xl p-1">
             <TypeTab
               active={type === "expense"}
               accent="expense"
@@ -317,10 +319,14 @@ function TypeTab({
   onClick: () => void;
   children: React.ReactNode;
 }) {
+  // Dùng --color-outflow cho tab "Tiền ra", không phải --color-expense: expense
+  // giờ chỉ còn là màu nhận diện (tím), còn tiền ra thì đã là hồng ở khắp nơi
+  // — cột biểu đồ, chấm chú giải, con số. Để tím ở đây là tab nói một đằng,
+  // phần còn lại của app nói một nẻo.
   const activeClass =
     accent === "income"
       ? "bg-income/[0.12] text-income"
-      : "bg-expense/[0.12] text-expense";
+      : "bg-outflow/[0.12] text-outflow";
   // Tab không hoạt động vẫn khai báo nền trong suốt để trình duyệt nội suy được
   // màu nền khi đổi tab, thay vì nhảy phịch một cái.
   return (

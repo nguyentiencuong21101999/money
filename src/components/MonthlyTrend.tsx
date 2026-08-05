@@ -23,7 +23,7 @@ export function MonthlyTrend({ points, currentMonth, onSelectMonth }: Props) {
         <h2 className="text-sm font-semibold">Thu chi {points.length} tháng gần đây</h2>
         <ul className="flex gap-3">
           <LegendItem swatch="bg-income">Tiền vào</LegendItem>
-          <LegendItem swatch="bg-expense">Tiền ra</LegendItem>
+          <LegendItem swatch="bg-outflow">Tiền ra</LegendItem>
         </ul>
       </div>
 
@@ -78,7 +78,7 @@ export function MonthlyTrend({ points, currentMonth, onSelectMonth }: Props) {
                   <Bar
                     value={p.expense}
                     max={scaleMax}
-                    className="bg-expense"
+                    className="bg-outflow"
                     delay={Math.min(index * 55, 300)}
                   />
 
