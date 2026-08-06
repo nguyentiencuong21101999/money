@@ -17,6 +17,7 @@ import { byNewestFirst } from "@/lib/order";
 import { byCategoryOf, summarize } from "@/lib/stats";
 import { useTransactions } from "@/lib/transactions";
 import type { Transaction } from "@/lib/types";
+import { CategoryBars } from "./CategoryBars";
 import { CollapsibleGroup, GroupList, netOf } from "./CollapsibleGroup";
 import { HEADER_BUTTON, HOME_CRUMB, PageHeader } from "./PageHeader";
 import { defaultRange, RangePicker } from "./RangePicker";
@@ -194,37 +195,10 @@ export function Statement({ uid: otherUid, ownerName }: Props = {}) {
           </section>
         )}
 
+        {/* Dùng LẠI CategoryBars, không tự vẽ thanh nữa — xem ghi chú prop title
+            trong component đó về lý do. */}
         {slices.length > 0 && (
-          <section className="card animate-rise p-4">
-            <h2 className="text-sm font-semibold">Chi theo danh mục cả kỳ</h2>
-            <ul className="mt-2.5 space-y-1.5">
-              {slices.map((slice, index) => (
-                <li key={slice.category} className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1">
-                  <span className="flex min-w-0 items-center gap-1.5 text-sm">
-                    <span aria-hidden="true">{iconFor(slice.category)}</span>
-                    <span className="truncate">{slice.category}</span>
-                  </span>
-                  <span className="text-ink-2 text-sm font-medium tabular-nums">
-                    {formatVND(slice.total)}
-                    <span className="text-muted ml-1.5 font-normal">
-                      {Math.round(slice.share * 100)}%
-                    </span>
-                  </span>
-                  <span className="col-span-2 block h-2">
-                    <span
-                      className="bg-expense animate-grow-x block h-full rounded-r"
-                      // Bề rộng khớp đúng con số % bên cạnh, không vẽ theo
-                      // danh mục lớn nhất (sẽ lệch với nhãn).
-                      style={{
-                        width: `${Math.max(1.5, slice.share * 100)}%`,
-                        animationDelay: `${Math.min(index * 45, 300)}ms`,
-                      }}
-                    />
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
+          <CategoryBars slices={slices} title="Chi theo danh mục cả kỳ" />
         )}
 
         <StatementList

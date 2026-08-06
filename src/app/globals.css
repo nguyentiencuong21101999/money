@@ -511,11 +511,24 @@ input[type="number"]::-webkit-outer-spin-button {
   dung bên trong cuộn được, không neo thì dải màu chạy theo nội dung.
 */
 .page-surface {
+  /*
+    CHỈ hai dòng này, giống hệt body::before — KHÔNG thêm background-attachment,
+    background-size hay background-position.
+
+    Lúc đầu tôi copy ba dòng đó từ .sheet-surface và nó sai trên điện thoại: dải
+    màu ở đầu trình xem ảnh ra một màu khác hẳn phần dưới, thấy rõ một vệt phân
+    cách ngang, mà trên máy tính thì không.
+
+    Sheet CẦN ba dòng đó vì nó là panel nhỏ nằm giữa trang, phải neo theo khung
+    nhìn mới lấy đúng lát gradient tại chỗ nó đứng. Còn lớp này luôn phủ kín màn
+    hình (fixed inset-0), nên hộp của nó ĐÃ là khung nhìn — thêm size 100vw 100vh
+    là tự tạo ra lệch, vì 100vh trên điện thoại là chiều cao viewport LỚN (tính cả
+    phần sau thanh địa chỉ), cao hơn vùng thật sự thấy được. Cộng thêm
+    background-position: center là dải màu bị cắt lệch theo chiều dọc. Trên máy
+    tính 100vh đúng bằng vùng thấy được nên không lộ ra.
+  */
   background-image: var(--page-gradient);
   background-color: var(--color-plane);
-  background-attachment: fixed;
-  background-size: 100vw 100vh;
-  background-position: center;
 }
 
 /* ---------------------------------------------------------------

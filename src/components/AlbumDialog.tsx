@@ -99,14 +99,24 @@ export function AlbumDialog({ uid, idToken, editing, onClose, onCreated }: Props
 
   return createPortal(
     <div
-      className="animate-fade fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-md sm:items-center"
+      /*
+        Căn GIỮA ở mọi cỡ, không phải bottom sheet như TxSheet/SendNotice.
+
+        Hai cái kia là form dài nên trượt lên từ đáy là đúng: ngón tay ở gần đáy
+        màn hình, và nội dung cao tới đâu thì sheet chiếm tới đó. Popup này chỉ có
+        một ô nhập và hai nút — dán sát mép dưới thì để trống nguyên màn hình phía
+        trên, trông như bị tụt xuống chứ không như một hộp thoại.
+
+        Có p-5 vì đã căn giữa: bottom sheet trải hết chiều ngang nên không cần,
+        còn hộp thoại giữa màn hình mà không chừa lề thì trên máy hẹp nó chạm hai
+        mép.
+      */
+      className="animate-fade fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5 backdrop-blur-md"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       {/* sheet-surface là bắt buộc, không phải trang trí: .card là kính TRONG,
-          mà đây nằm trên lớp phủ tối nên mặt kính ăn màu tối và ra xám đục.
-          Bán kính khớp .card (1.25rem) thay vì rounded-b-2xl, không thì hai góc
-          dưới hụt so với hai góc trên ở màn hình rộng. */}
-      <div className="card sheet-surface animate-sheet sm:animate-pop max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-b-none p-5 sm:rounded-b-[1.25rem]">
+          mà đây nằm trên lớp phủ tối nên mặt kính ăn màu tối và ra xám đục. */}
+      <div className="card sheet-surface animate-pop max-h-[92dvh] w-full max-w-md overflow-y-auto p-5">
         <div className="flex items-start justify-between gap-3">
           <h2 className="min-w-0 text-base font-semibold">
             {editing ? "Sửa album" : "Album mới"}
