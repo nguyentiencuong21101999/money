@@ -12,7 +12,7 @@ import {
 import { useNow } from "@/lib/now";
 import { NotificationRow } from "./NotificationRow";
 import { BellIcon } from "./icons";
-import { HEADER_BUTTON, PageHeader } from "./PageHeader";
+import { HEADER_BUTTON, HOME_CRUMB, PageHeader } from "./PageHeader";
 
 export function Notifications() {
   const { user } = useAuth();
@@ -34,7 +34,7 @@ export function Notifications() {
        vừa. min-h-0 là bắt buộc: thiếu nó thì flex item không cho co nhỏ hơn nội
        dung và cả trang lại dài ra như cũ. */
     <div className="mx-auto flex h-dvh max-w-2xl flex-col px-4 pt-4 pb-4">
-      <PageHeader title="Thông báo">
+      <PageHeader title="Thông báo" trail={[HOME_CRUMB]}>
         {unread > 0 && (
           <span className="bg-expense/12 text-expense rounded-full px-2 py-0.5 text-xs font-medium">
             {unread} chưa đọc

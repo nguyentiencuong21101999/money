@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
+import { ScrollTopButton } from "@/components/ScrollTopButton";
 
 export const metadata: Metadata = {
   // template để trang con tự nối đuôi, vd "Sao kê · Sổ tiền"
@@ -49,6 +50,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-full">
         <AuthProvider>{children}</AuthProvider>
+        {/*
+          Đặt ở layout gốc nên có mặt ở MỌI trang, khỏi phải gắn tay từng chỗ và
+          khỏi lỡ một trang nào. Nút tự ẩn khi chưa cuộn quá một màn hình, nên ở
+          trang ngắn hay màn đăng nhập nó không vẽ gì cả.
+
+          Nằm NGOÀI AuthProvider vì nó chỉ đọc vị trí cuộn, không cần biết ai đang
+          đăng nhập. z-30 nên các lớp phủ (sheet z-50, viewer z-60, popup xác nhận
+          z-70) đều che được nó.
+        */}
+        <ScrollTopButton />
       </body>
     </html>
   );
