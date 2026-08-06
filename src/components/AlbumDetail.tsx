@@ -53,7 +53,25 @@ const PHOTO_TRAIL = [HOME_CRUMB, { label: "Thư viện ảnh", href: "/images" }
 export function AlbumDetail({ albumId }: { albumId: string }) {
   const { user } = useAuth();
   const album = useAlbum(user?.uid, albumId);
-  const { data: photos, loading, error } = usePhotos(user?.uid, albumId);
+  const { data: photos, loading: loadingPhotos, error } = usePhotos(user?.uid, albumId);
+
+  /**
+   * Có nên che lưới bằng logo chờ hay không.
+   *
+   * usePhotos coi "rỗng mà từ cache" là CHƯA chốt, vì cache không phân biệt được
+   * "album rỗng thật" với "chưa tải về". Đúng cho album có ảnh, nhưng với album
+   * rỗng thì nó phải đợi snapshot từ server — tức đợi Firestore bắt xong kết nối,
+   * trên điện thoại sau khi tải lại trang là vài giây ngồi nhìn logo thở cho một
+   * album chẳng có gì.
+   *
+   * photoCount trong document album trả lời được ngay: nó cập nhật nguyên tử cùng
+   * mỗi lần thêm/xoá ảnh, và document album đã nằm trong cache từ lúc xem lưới
+   * album. Biết trước là 0 thì khỏi chờ gì cả.
+   *
+   * Vẫn chờ khi album.loading: lúc đó chưa biết photoCount, mà useAlbum chốt ngay
+   * ở snapshot đầu (kể cả từ cache) nên quãng này rất ngắn.
+   */
+  const loading = loadingPhotos && (album.loading || (album.data?.photoCount ?? 0) > 0);
   const inputRef = useRef<HTMLInputElement>(null);
   /** Điều khiển huỷ lượt đẩy đang chạy. null = không có lượt nào. */
   const abortRef = useRef<AbortController | null>(null);
