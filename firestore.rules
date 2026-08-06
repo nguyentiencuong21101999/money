@@ -56,6 +56,63 @@ service cloud.firestore {
           && request.resource.data.isRead is bool;
       }
 
+      // Thư viện ảnh — KHÔNG liên quan gì tới sổ tiền, chỉ dùng chung lớp đăng nhập.
+      // Bytes ảnh nằm trên Google Drive, gom theo album thành thư mục thật:
+      //   Thư viện ảnh — Sổ tiền/email/tên album/anh.jpg
+      // Firestore chỉ giữ metadata để liệt kê, lọc, sắp xếp, cộng một thumb 200px
+      // để lưới ảnh vẽ ra ngay.
+      //
+      // Admin CỐ TÌNH không đọc được cả hai collection dưới đây: ảnh riêng tư hơn
+      // số tiền, và trang /manager không có phần nào cần tới ảnh. Thiếu isAdmin()
+      // ở đây là có chủ đích.
+
+      // Album. driveFolderId là thư mục trên Drive do /api/albums tạo; quyền sở
+      // hữu thư mục đó neo ở appProperties.ownerUid bên Drive, nên máy chủ kiểm
+      // được mà không cần đọc Firestore.
+      match /albums/{albumId} {
+        allow read, delete: if request.auth != null && request.auth.uid == userId;
+        allow create, update: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 120
+          && request.resource.data.driveFolderId is string
+          && request.resource.data.driveFolderId.size() > 0
+          && request.resource.data.createdAt is number
+          // Logo cùng cỡ với thumb ảnh: 200px WebP. Không chặn thì một logo 900KB
+          // làm phình document, mà logo được tải cho MỌI album ở trang danh sách.
+          && request.resource.data.logo is string
+          && request.resource.data.logo.size() < 60000
+          // Số ảnh trong album. Trình duyệt cập nhật bằng increment() nằm chung
+          // writeBatch với lần ghi/xoá ảnh, nên rule này PHẢI cho qua — thiếu nó
+          // là mọi lượt upload bị từ chối cả batch, kể cả document ảnh.
+          // Không âm được: đếm sai dấu thì lưới album hiện "-2 ảnh".
+          && (!('photoCount' in request.resource.data)
+              || (request.resource.data.photoCount is number
+                  && request.resource.data.photoCount >= 0));
+      }
+
+      match /images/{imageId} {
+        allow read, delete: if request.auth != null && request.auth.uid == userId;
+        allow create, update: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.driveFileId is string
+          && request.resource.data.driveFileId.size() > 0
+          // Ảnh luôn thuộc một album. Bắt buộc có để query lọc theo albumId không
+          // bỏ sót ảnh nào — ảnh không albumId sẽ không hiện ở bất kỳ đâu.
+          && request.resource.data.albumId is string
+          && request.resource.data.albumId.size() > 0
+          && request.resource.data.mimeType is string
+          && request.resource.data.size is number
+          && request.resource.data.createdAt is number
+          && request.resource.data.tags is list
+          // Thumb phải nhỏ. Không chặn thì một "thumb" 900KB lọt vào là document
+          // chạm trần 1MB của Firestore, và mỗi lượt mở album tải về từng ấy
+          // byte cho MỖI ảnh — đúng cái bệnh mà kiến trúc này dựng ra để tránh.
+          && request.resource.data.thumb is string
+          && request.resource.data.thumb.size() < 60000;
+      }
+
       match /budgets/{month} {
         allow read, delete: if request.auth != null && request.auth.uid == userId;
         allow create, update: if request.auth != null

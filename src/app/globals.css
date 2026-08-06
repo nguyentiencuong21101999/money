@@ -500,6 +500,24 @@ input[type="number"]::-webkit-outer-spin-button {
   background-position: center;
 }
 
+/*
+  Nền Y HỆT nền trang, cho lớp phủ kín màn hình (trình xem ảnh).
+
+  Khác .sheet-surface ở đúng một chỗ: KHÔNG có --surface-veil. Sheet là panel nổi
+  lên TRÊN nền nên cần màn trắng để tách khỏi nền; còn lớp này CHÍNH LÀ nền, phủ
+  thêm màn trắng là sáng hơn trang thật và thành một màu khác.
+
+  Vẫn neo theo khung nhìn như sheet-surface: lớp phủ cao bằng màn hình nhưng nội
+  dung bên trong cuộn được, không neo thì dải màu chạy theo nội dung.
+*/
+.page-surface {
+  background-image: var(--page-gradient);
+  background-color: var(--color-plane);
+  background-attachment: fixed;
+  background-size: 100vw 100vh;
+  background-position: center;
+}
+
 /* ---------------------------------------------------------------
    Trạng thái tương tác. Chỉ gắn vào thứ THẬT SỰ bấm được — thẻ chỉ
    để đọc mà cũng nhấc lên khi rê chuột là hứa hẹn một hành động
