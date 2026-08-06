@@ -18,7 +18,7 @@ import { byCategoryOf, summarize } from "@/lib/stats";
 import { useTransactions } from "@/lib/transactions";
 import type { Transaction } from "@/lib/types";
 import { CollapsibleGroup, GroupList, netOf } from "./CollapsibleGroup";
-import { HEADER_BUTTON, PageHeader } from "./PageHeader";
+import { HEADER_BUTTON, HOME_CRUMB, PageHeader } from "./PageHeader";
 import { defaultRange, RangePicker } from "./RangePicker";
 
 interface Props {
@@ -74,8 +74,17 @@ export function Statement({ uid: otherUid, ownerName }: Props = {}) {
           nhảy thẳng về trang chủ bắt đi lại từ đầu. */}
       <PageHeader
         title={ownerName ? `Sao kê · ${ownerName}` : "Sao kê"}
-        href={otherUid ? `/manager/${otherUid}` : "/"}
-        backLabel={otherUid ? "trang chi tiết người dùng" : "trang chủ"}
+        /* Admin xem hộ thì đường dẫn đi qua cả trang quản lý và trang chi tiết —
+           lùi ra là về đúng chỗ vừa bấm sang, không nhảy thẳng về trang chủ. */
+        trail={
+          otherUid
+            ? [
+                HOME_CRUMB,
+                { label: "Quản lý", href: "/manager" },
+                { label: ownerName ?? "Chi tiết", href: `/manager/${otherUid}` },
+              ]
+            : [HOME_CRUMB]
+        }
       >
         <button
           type="button"

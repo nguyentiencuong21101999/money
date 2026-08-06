@@ -5,7 +5,7 @@ import { useAdminGate } from "@/lib/admin-gate";
 import { useNow } from "@/lib/now";
 import { useProfiles } from "@/lib/profile";
 import { UsersIcon } from "./icons";
-import { PageHeader } from "./PageHeader";
+import { HOME_CRUMB, PageHeader } from "./PageHeader";
 import { UserCard } from "./UserCard";
 
 export function Manager() {
@@ -17,7 +17,7 @@ export function Manager() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 pt-4 pb-16">
-      <PageHeader title="Quản lý">
+      <PageHeader title="Quản lý" trail={[HOME_CRUMB]}>
         <span className="text-muted text-xs">{users.length} người</span>
       </PageHeader>
 

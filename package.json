@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
     "check-models": "node scripts/check-models.mjs",
+    "drive-auth": "node scripts/drive-auth.mjs",
     "check-palette": "node scripts/validate-palette.mjs --new"
   },
   "dependencies": {

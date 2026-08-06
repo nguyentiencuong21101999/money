@@ -11,7 +11,7 @@ import { useTransactions } from "@/lib/transactions";
 import { CategoryBars } from "./CategoryBars";
 import { MonthPicker } from "./MonthPicker";
 import { MonthlyTrend } from "./MonthlyTrend";
-import { PageHeader } from "./PageHeader";
+import { HOME_CRUMB, PageHeader } from "./PageHeader";
 import { SendNotice } from "./SendNotice";
 import { SummaryPanel } from "./SummaryPanel";
 import { TxList } from "./TxList";
@@ -46,7 +46,10 @@ export function UserDetail({ uid }: { uid: string }) {
 
   return (
     <div className="mx-auto max-w-2xl px-4 pt-4 pb-16">
-      <PageHeader title="Chi tiết" href="/manager" backLabel="danh sách người dùng" />
+      <PageHeader
+        title="Chi tiết"
+        trail={[HOME_CRUMB, { label: "Quản lý", href: "/manager" }]}
+      />
 
       {/* Điện thoại: ảnh trên, chữ dưới, hai nút thành một hàng rộng hết thẻ.
           Từ sm trở lên mới xếp ngang được mà chữ vẫn đọc trọn. */}

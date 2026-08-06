@@ -66,3 +66,43 @@ export function UsersIcon(props: { size?: number; className?: string; gradient?:
     </Icon>
   );
 }
+
+export function ArrowUpIcon(props: {
+  size?: number;
+  className?: string;
+  gradient?: boolean;
+}) {
+  return (
+    <Icon {...props}>
+      <path d="M12 19V5" />
+      <path d="M5 12l7-7 7 7" />
+    </Icon>
+  );
+}
+
+export function ImageIcon(props: {
+  size?: number;
+  className?: string;
+  gradient?: boolean;
+}) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="9" cy="9" r="2" />
+      {/* Đường chân trời cắt qua khung: đủ để nhận ra là ảnh ở cỡ 16px. */}
+      <path d="M21 15l-4.35-4.35a2 2 0 0 0-2.83 0L3 21" />
+    </Icon>
+  );
+}
+
+export function ChevronRightIcon(props: {
+  size?: number;
+  className?: string;
+  gradient?: boolean;
+}) {
+  return (
+    <Icon {...props}>
+      <path d="M9 6l6 6-6 6" />
+    </Icon>
+  );
+}

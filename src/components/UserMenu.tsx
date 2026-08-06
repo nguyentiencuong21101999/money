@@ -6,7 +6,7 @@ import type { User } from "firebase/auth";
 import { isAdminEmail } from "@/lib/admin";
 import { monthYearInVN } from "@/lib/date";
 import { useRevealOnOpen } from "@/lib/reveal";
-import { UsersIcon } from "./icons";
+import { ImageIcon, UsersIcon } from "./icons";
 import { PushToggle } from "./PushToggle";
 
 interface Props {
@@ -89,6 +89,18 @@ export function UserMenu({ user, onSignOut }: Props) {
           </dl>
 
           <PushToggle uid={user.uid} />
+
+          {/* Thư viện ảnh — cho mọi người, không riêng admin: mỗi người chỉ thấy
+              album của chính mình (firestore.rules chặn theo uid). */}
+          <Link
+            href="/images"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="border-hairline hover:bg-expense/8 flex items-center gap-2 border-t px-4 py-3 text-sm font-medium transition"
+          >
+            <ImageIcon size={16} gradient />
+            Quản lý ảnh
+          </Link>
 
           {isAdminEmail(user.email) && (
             <Link
