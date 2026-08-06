@@ -362,7 +362,16 @@ export function AlbumDetail({ albumId }: { albumId: string }) {
       )}
 
       {loading ? (
-        <div className="flex justify-center py-10">
+        /*
+          Chiếm hết phần màn hình còn lại rồi căn giữa, không phải py-10.
+
+          py-10 đặt logo ngay dưới đầu trang, còn cả một màn hình trống bên dưới —
+          nhìn như trang đã tải xong mà rỗng, chứ không như đang chờ.
+
+          10rem trừ ra là phần đã bị chiếm: main p-4 (1rem trên), đầu trang gồm
+          breadcrumb + hàng logo + mb-4 (~4rem), và pb-16 ở đáy (4rem).
+        */
+        <div className="flex min-h-[calc(100dvh-10rem)] items-center justify-center">
           <LoadingMark />
         </div>
       ) : (

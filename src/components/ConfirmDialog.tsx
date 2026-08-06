@@ -50,7 +50,9 @@ export function ConfirmDialog({
 
   return createPortal(
     <div
-      className="animate-fade fixed inset-0 z-70 flex items-end justify-center bg-black/40 backdrop-blur-md sm:items-center"
+      // Căn giữa ở mọi cỡ, không bottom sheet — xem ghi chú cùng chuyện trong
+      // AlbumDialog: hộp thoại ngắn dán sát mép dưới trông như bị tụt xuống.
+      className="animate-fade fixed inset-0 z-70 flex items-center justify-center bg-black/40 p-5 backdrop-blur-md"
       // Đang xoá thì bấm ra ngoài không đóng — việc đã chạy, đóng đi chỉ làm mất
       // chỗ báo kết quả.
       onMouseDown={(e) => {
@@ -62,7 +64,7 @@ export function ConfirmDialog({
       {/* max-h + overflow-y-auto như các sheet khác: tên ảnh dài hoặc thông báo
           lỗi nhiều dòng có thể đẩy popup cao hơn màn hình, không cho cuộn thì
           hai nút Huỷ/Xoá bị đẩy ra ngoài và không bấm được. */}
-      <div className="card sheet-surface animate-sheet sm:animate-pop max-h-[92dvh] w-full max-w-sm overflow-y-auto rounded-b-none p-5 sm:rounded-b-[1.25rem]">
+      <div className="card sheet-surface animate-pop max-h-[92dvh] w-full max-w-sm overflow-y-auto p-5">
         <h2 className="text-base font-semibold">{title}</h2>
         {message && (
           <p className="text-ink-2 mt-2 text-sm leading-relaxed whitespace-pre-line">
