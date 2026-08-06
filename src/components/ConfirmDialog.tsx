@@ -9,6 +9,13 @@ interface Props {
   message?: string;
   /** Chữ trên nút xác nhận. Mặc định "Xoá". */
   confirmLabel?: string;
+  /**
+   * Màu nút xác nhận. "danger" cho việc mất dữ liệu, "brand" cho việc lành.
+   *
+   * Mặc định là danger vì popup này sinh ra để hỏi trước khi xoá — việc nào không
+   * mất gì thì phải nói ra, đừng để nút đỏ dọa người dùng.
+   */
+  tone?: "danger" | "brand";
   /** Đang chạy việc — khoá cả hai nút để không bấm hai lần. */
   busy?: boolean;
   onConfirm: () => void;
@@ -30,6 +37,7 @@ export function ConfirmDialog({
   title,
   message,
   confirmLabel = "Xoá",
+  tone = "danger",
   busy = false,
   onConfirm,
   onCancel,
@@ -85,11 +93,13 @@ export function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            /* bg-outflow = --color-danger-text, đúng màu app dùng cho số trừ.
-               Không thêm đỏ mới vào bảng màu chỉ để làm nút này. */
-            className="bg-outflow flex-1 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition duration-200 active:scale-[0.98] disabled:opacity-40"
+            /* bg-outflow = --color-danger-text, đúng màu app dùng cho số trừ;
+               bg-brand là dải màu của nút chính. Không thêm màu mới nào. */
+            className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition duration-200 active:scale-[0.98] disabled:opacity-40 ${
+              tone === "brand" ? "bg-brand" : "bg-outflow"
+            }`}
           >
-            {busy ? "Đang xoá…" : confirmLabel}
+            {busy ? "Đang xử lý…" : confirmLabel}
           </button>
         </div>
       </div>
