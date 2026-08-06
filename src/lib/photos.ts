@@ -364,16 +364,20 @@ export async function deletePhoto(
   mà giữ lại thì không tốn gì đáng kể.
 */
 /**
- * Tải bản gốc về dạng blob URL để xem to.
+ * Tải bản gốc về dạng Blob.
  *
  * Không thể gán thẳng /api/images/[id] vào <img src>: thẻ img không gửi được
  * header Authorization, mà route thì bắt buộc phải có ID token để biết ai đang
- * xem. Nên tải bằng fetch rồi bọc thành blob URL.
+ * xem. Nên phải tải bằng fetch.
  *
- * NGƯỜI GỌI PHẢI URL.revokeObjectURL() khi đóng ảnh — không thì mỗi lần mở một
- * tấm là giữ lại nguyên vài MB trong RAM cho tới khi tải lại trang.
+ * Trả về Blob chứ không phải blob URL, vì người gọi cần CẢ HAI: URL để đưa vào
+ * <img src>, và chính Blob để dựng File cho Web Share API khi lưu về máy trên
+ * iOS. Tạo URL ở đây rồi thì không lấy lại được Blob.
+ *
+ * NGƯỜI GỌI tự createObjectURL và PHẢI revokeObjectURL khi đóng ảnh — không thì
+ * mỗi lần mở một tấm là giữ lại vài MB trong RAM tới khi tải lại trang.
  */
-export async function fetchOriginal(photo: Photo, idToken: string): Promise<string> {
+export async function fetchOriginal(photo: Photo, idToken: string): Promise<Blob> {
   const response = await fetch(`/api/images/${encodeURIComponent(photo.driveFileId)}`, {
     headers: { Authorization: `Bearer ${idToken}` },
   });
@@ -382,7 +386,7 @@ export async function fetchOriginal(photo: Photo, idToken: string): Promise<stri
     const payload = await response.json().catch(() => null);
     throw new Error(payload?.error ?? "Không tải được ảnh gốc.");
   }
-  return URL.createObjectURL(await response.blob());
+  return await response.blob();
 }
 
 /* --------------------------------------------------------------------------

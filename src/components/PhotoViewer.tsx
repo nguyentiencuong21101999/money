@@ -29,6 +29,8 @@ interface Props {
  */
 export function PhotoViewer({ photo, uid, idToken, onClose, onDeleted }: Props) {
   const [src, setSrc] = useState<string | null>(null);
+  /** Giữ luôn Blob, không chỉ URL: Web Share API cần một File thật để lưu về máy. */
+  const [blob, setBlob] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [zoomed, setZoomed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -42,7 +44,8 @@ export function PhotoViewer({ photo, uid, idToken, onClose, onDeleted }: Props) 
     let alive = true;
 
     fetchOriginal(photo, idToken)
-      .then((objectUrl) => {
+      .then((bytes) => {
+        const objectUrl = URL.createObjectURL(bytes);
         url = objectUrl;
         // Đóng viewer trước khi ảnh về xong thì thu hồi ngay, đừng setState vào
         // component đã tháo.
@@ -50,6 +53,7 @@ export function PhotoViewer({ photo, uid, idToken, onClose, onDeleted }: Props) 
           URL.revokeObjectURL(objectUrl);
           return;
         }
+        setBlob(bytes);
         setSrc(objectUrl);
       })
       .catch((e) => {
@@ -83,18 +87,45 @@ export function PhotoViewer({ photo, uid, idToken, onClose, onDeleted }: Props) 
   /**
    * Lưu bản gốc về máy.
    *
-   * Dùng LẠI blob đã tải để hiện ảnh, không gọi mạng lần nữa — bytes đã nằm sẵn
-   * trong RAM, tải lại là trả tiền băng thông hai lần cho cùng một tấm. Vì vậy
-   * nút bị khoá tới khi ảnh gốc về xong.
+   * HAI ĐƯỜNG, và phải thử đúng thứ tự.
    *
-   * Phải gắn thẻ <a> vào DOM trước khi click: Firefox bỏ qua click trên thẻ chưa
-   * nằm trong tài liệu, nên không gắn thì trên Firefox bấm Lưu không có gì xảy ra.
+   * 1. Web Share API với files — đường DUY NHẤT chạy trên Safari iOS. iOS bỏ qua
+   *    hoàn toàn thuộc tính `download` của thẻ <a>: nó điều hướng tới blob URL và
+   *    hiện trang xem trước "Mở trong iMovie…", không lưu gì cả. navigator.share
+   *    thì mở bảng chia sẻ của hệ điều hành, ở đó có "Lưu vào Ảnh".
+   * 2. Thẻ <a download> — cho máy tính và Android, nơi share files thường không có.
+   *
+   * Dùng LẠI Blob đã tải để hiện ảnh, không gọi mạng lần nữa: bytes đã nằm trong
+   * RAM, tải lại là trả tiền băng thông hai lần cho cùng một tấm. Vì vậy nút bị
+   * khoá tới khi ảnh gốc về xong.
    */
-  function download() {
+  async function save() {
+    if (!blob) return;
+
+    const file = new File([blob], photo.name || "anh.jpg", {
+      type: photo.mimeType || blob.type || "image/jpeg",
+    });
+
+    // canShare({files}) là phép thử đúng: navigator.share có mặt trên nhiều máy
+    // nhưng không phải máy nào cũng nhận được FILE.
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: file.name });
+        return;
+      } catch (e) {
+        // Người dùng bấm huỷ bảng chia sẻ — không phải lỗi, đừng báo gì.
+        if ((e as { name?: string })?.name === "AbortError") return;
+        // Lỗi thật thì rơi xuống cách 2 thay vì bỏ mặc.
+        console.error("[photos] share thất bại, thử tải trực tiếp", e);
+      }
+    }
+
     if (!src) return;
     const link = document.createElement("a");
     link.href = src;
-    link.download = photo.name || "anh.jpg";
+    link.download = file.name;
+    // Phải gắn vào DOM trước khi click: Firefox bỏ qua click trên thẻ chưa nằm
+    // trong tài liệu.
     document.body.append(link);
     link.click();
     link.remove();
@@ -134,7 +165,7 @@ export function PhotoViewer({ photo, uid, idToken, onClose, onDeleted }: Props) 
       */
       className="animate-fade page-surface fixed inset-0 z-60 flex flex-col"
     >
-      <div className="flex shrink-0 items-start justify-between gap-3 px-4 py-3">
+      <div className="flex shrink-0 items-start justify-between gap-3 px-5 py-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{photo.name}</p>
           <p className="text-muted mt-0.5 truncate text-xs">{size}</p>
@@ -203,7 +234,7 @@ export function PhotoViewer({ photo, uid, idToken, onClose, onDeleted }: Props) 
           thẻ bọc ngoài đang nghe click để đóng. */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="border-hairline flex shrink-0 items-center justify-end gap-3 border-t px-4 py-3"
+        className="border-hairline flex shrink-0 items-center justify-end gap-3 border-t px-5 pt-3 pb-4"
       >
         <div className="flex shrink-0 items-center gap-2">
           <button
@@ -216,9 +247,11 @@ export function PhotoViewer({ photo, uid, idToken, onClose, onDeleted }: Props) 
           </button>
           <button
             type="button"
-            onClick={download}
+            onClick={() => void save()}
             // Chưa tải xong bản gốc thì chưa có gì để lưu.
-            disabled={!src || busy}
+            // Khoá theo `blob` chứ không theo `src`: đó mới là thứ save() cần —
+            // đường Web Share dựng File từ Blob, còn src chỉ dùng ở cách dự phòng.
+            disabled={!blob || busy}
             className="bg-brand rounded-xl px-4 py-2 text-sm font-medium text-white transition active:scale-[0.98] disabled:opacity-40"
           >
             Lưu
