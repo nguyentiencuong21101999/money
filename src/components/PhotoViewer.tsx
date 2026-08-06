@@ -2,7 +2,14 @@
 
 import { useEffect, useState, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
-import { deletePhoto, fetchOriginal, formatBytes, type Photo } from "@/lib/photos";
+import {
+  deletePhoto,
+  downloadFiles,
+  fetchOriginal,
+  formatBytes,
+  needsShareToSave,
+  type Photo,
+} from "@/lib/photos";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { LoadingMark } from "./LoadingMark";
 
@@ -87,17 +94,12 @@ export function PhotoViewer({ photo, uid, idToken, onClose, onDeleted }: Props) 
   /**
    * Lưu bản gốc về máy.
    *
-   * HAI ĐƯỜNG, và phải thử đúng thứ tự.
+   * Chỉ iOS mới phải qua bảng chia sẻ vì ở đó <a download> bị bỏ qua — xem
+   * needsShareToSave(). Máy khác tải thẳng.
    *
-   * 1. Web Share API với files — đường DUY NHẤT chạy trên Safari iOS. iOS bỏ qua
-   *    hoàn toàn thuộc tính `download` của thẻ <a>: nó điều hướng tới blob URL và
-   *    hiện trang xem trước "Mở trong iMovie…", không lưu gì cả. navigator.share
-   *    thì mở bảng chia sẻ của hệ điều hành, ở đó có "Lưu vào Ảnh".
-   * 2. Thẻ <a download> — cho máy tính và Android, nơi share files thường không có.
-   *
-   * Dùng LẠI Blob đã tải để hiện ảnh, không gọi mạng lần nữa: bytes đã nằm trong
-   * RAM, tải lại là trả tiền băng thông hai lần cho cùng một tấm. Vì vậy nút bị
-   * khoá tới khi ảnh gốc về xong.
+   * Ở đây KHÔNG cần cú bấm thứ hai như lúc lưu nhiều ảnh: Blob đã nằm trong RAM
+   * từ lúc mở ảnh, không phải chờ mạng, nên cử chỉ bấm vẫn còn hiệu lực khi gọi
+   * navigator.share.
    */
   async function save() {
     if (!blob) return;
@@ -106,29 +108,18 @@ export function PhotoViewer({ photo, uid, idToken, onClose, onDeleted }: Props) 
       type: photo.mimeType || blob.type || "image/jpeg",
     });
 
-    // canShare({files}) là phép thử đúng: navigator.share có mặt trên nhiều máy
-    // nhưng không phải máy nào cũng nhận được FILE.
-    if (navigator.canShare?.({ files: [file] })) {
+    if (needsShareToSave([file])) {
       try {
         await navigator.share({ files: [file], title: file.name });
         return;
       } catch (e) {
-        // Người dùng bấm huỷ bảng chia sẻ — không phải lỗi, đừng báo gì.
+        // Bấm huỷ bảng chia sẻ không phải lỗi.
         if ((e as { name?: string })?.name === "AbortError") return;
-        // Lỗi thật thì rơi xuống cách 2 thay vì bỏ mặc.
         console.error("[photos] share thất bại, thử tải trực tiếp", e);
       }
     }
 
-    if (!src) return;
-    const link = document.createElement("a");
-    link.href = src;
-    link.download = file.name;
-    // Phải gắn vào DOM trước khi click: Firefox bỏ qua click trên thẻ chưa nằm
-    // trong tài liệu.
-    document.body.append(link);
-    link.click();
-    link.remove();
+    downloadFiles([file]);
   }
 
   async function remove() {

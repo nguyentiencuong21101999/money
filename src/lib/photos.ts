@@ -413,6 +413,67 @@ export function sortPhotos(photos: Photo[], sort: SortKey): Photo[] {
   return [...photos].sort(COMPARATORS[sort]);
 }
 
+/* --------------------------------------------------------------------------
+   Lưu ảnh về máy
+   -------------------------------------------------------------------------- */
+
+/**
+ * Máy này có phải iOS/iPadOS không.
+ *
+ * Phải nhận diện theo NỀN TẢNG, không phải theo trình duyệt: Chrome và Firefox
+ * trên iPhone cũng chạy WebKit nên cùng chung giới hạn.
+ *
+ * Không có cách nhận biết bằng feature detection: `"download" in
+ * HTMLAnchorElement.prototype` trả true cả trên iOS — thuộc tính CÓ trong DOM,
+ * iOS chỉ lặng lẽ không làm gì với nó. Nên đành đọc platform.
+ *
+ * iPadOS 13 trở lên tự báo là "MacIntel" để giả dạng máy tính, nên phải kiểm thêm
+ * số điểm cảm ứng mới phân biệt được với Mac thật.
+ */
+function isIOS(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const iPadPretendingToBeMac =
+    navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  return /iPad|iPhone|iPod/.test(navigator.platform) || iPadPretendingToBeMac;
+}
+
+/**
+ * Có PHẢI đi đường Web Share để lưu được file hay không.
+ *
+ * Chỉ đúng trên iOS, nơi <a download> bị bỏ qua hoàn toàn — bấm vào chỉ mở trang
+ * xem trước "Mở trong iMovie…", không lưu gì.
+ *
+ * CỐ Ý không dùng "cứ có canShare thì share": Chrome/Edge trên Windows và Safari
+ * trên macOS đều có canShare({files}), mà ở đó <a download> chạy hoàn hảo và tải
+ * thẳng là thứ người dùng mong đợi. Đi đường share ở đó là bắt họ qua thêm một
+ * bảng chia sẻ của hệ điều hành để làm một việc lẽ ra chỉ cần một cú bấm.
+ */
+export function needsShareToSave(files: File[]): boolean {
+  return isIOS() && Boolean(navigator.canShare?.({ files }));
+}
+
+/**
+ * Tải các file về máy bằng thẻ <a download>.
+ *
+ * Tự tạo và thu hồi blob URL cho từng file: giữ lại thì mỗi lần lưu là thêm vài MB
+ * nằm trong RAM tới khi tải lại trang.
+ *
+ * Gắn thẻ vào DOM trước khi click — Firefox bỏ qua click trên thẻ chưa nằm trong
+ * tài liệu.
+ */
+export function downloadFiles(files: File[]): void {
+  for (const file of files) {
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = file.name;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+}
+
 /**
  * Dịch lỗi ghi Firestore sang câu người dùng hiểu được.
  *

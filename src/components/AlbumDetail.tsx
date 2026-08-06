@@ -5,6 +5,9 @@ import { useAlbum } from "@/lib/albums";
 import { useAuth } from "@/lib/auth";
 import {
   deletePhoto,
+  downloadFiles,
+  fetchOriginal,
+  needsShareToSave,
   formatBytes,
   SORT_LABELS,
   sortPhotos,
@@ -97,6 +100,18 @@ export function AlbumDetail({ albumId }: { albumId: string }) {
    * và phải tự nhớ tắt cái kia mỗi lần bật cái này.
    */
   const [pending, setPending] = useState<Photo[] | null>(null);
+
+  /** Đang tải bản gốc để lưu; số là đã xong bao nhiêu tấm. */
+  const [preparing, setPreparing] = useState<number | null>(null);
+  /**
+   * File đã tải xong, đang chờ người dùng bấm lần thứ hai để mở bảng chia sẻ.
+   *
+   * PHẢI tách hai nhịp: navigator.share đòi cử chỉ người dùng CÒN HIỆU LỰC, mà
+   * tải bản gốc của mấy tấm ảnh mất vài giây nên cử chỉ ban đầu đã hết hạn —
+   * gọi share ngay sau vòng tải sẽ bị Safari từ chối bằng NotAllowedError.
+   * Cú bấm trong popup là một cử chỉ mới, hợp lệ.
+   */
+  const [ready, setReady] = useState<File[] | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -246,6 +261,55 @@ export function AlbumDetail({ albumId }: { albumId: string }) {
   }
 
   /**
+   * Tải bản gốc của các ảnh đã chọn rồi lưu về máy.
+   *
+   * Tuần tự chứ không song song: mỗi bản gốc là vài MB, mười tấm cùng lúc thì
+   * đường mạng bị chia mười và không biết đã xong mấy tấm.
+   *
+   * Một tấm hỏng không dừng cả lô — gom lại báo ở cuối, giống luồng upload.
+   */
+  async function saveSelected(targets: Photo[]) {
+    if (!idToken || targets.length === 0 || preparing !== null) return;
+
+    setPreparing(0);
+    setActionError(null);
+    const files: File[] = [];
+    const failed: string[] = [];
+
+    for (const photo of targets) {
+      try {
+        const blob = await fetchOriginal(photo, idToken);
+        files.push(
+          new File([blob], photo.name || "anh.jpg", {
+            type: photo.mimeType || blob.type || "image/jpeg",
+          }),
+        );
+      } catch (e) {
+        console.error("[photos] tải bản gốc thất bại", photo.name, e);
+        failed.push(photo.name);
+      }
+      setPreparing(files.length + failed.length);
+    }
+
+    setPreparing(null);
+    if (failed.length > 0) {
+      setActionError(
+        `Không tải được ${failed.length}/${targets.length} ảnh: ${failed.slice(0, 3).join(", ")}${failed.length > 3 ? "…" : ""}`,
+      );
+    }
+    if (files.length === 0) return;
+
+    // Chỉ iOS mới phải qua bảng chia sẻ, và ở đó cần một cú bấm nữa — xem ghi chú
+    // ở state `ready` và ở needsShareToSave().
+    if (needsShareToSave(files)) {
+      setReady(files);
+      return;
+    }
+    downloadFiles(files);
+    exitSelect();
+  }
+
+    /**
    * Xoá đúng danh sách được đưa vào, lần lượt từng tấm.
    *
    * Đếm riêng số tấm thất bại chứ không dừng ở tấm đầu tiên hỏng: xoá 20 ảnh mà
@@ -281,6 +345,22 @@ export function AlbumDetail({ albumId }: { albumId: string }) {
     }
   }
 
+  /** Cú bấm thứ hai — cử chỉ mới, đủ điều kiện cho navigator.share. */
+  async function shareReady(files: File[]) {
+    try {
+      await navigator.share({ files });
+      setReady(null);
+      exitSelect();
+    } catch (e) {
+      setReady(null);
+      // Bấm huỷ bảng chia sẻ không phải lỗi.
+      if ((e as { name?: string })?.name === "AbortError") return;
+      console.error("[photos] share thất bại, thử tải trực tiếp", e);
+      downloadFiles(files);
+      exitSelect();
+    }
+  }
+
   function exitSelect() {
     setSelecting(false);
     setSelected(new Set());
@@ -308,6 +388,14 @@ export function AlbumDetail({ albumId }: { albumId: string }) {
             <span className="text-muted text-xs whitespace-nowrap">
               Đã chọn {checked.size}
             </span>
+            <button
+              type="button"
+              onClick={() => void saveSelected(photos.filter((p) => checked.has(p.id)))}
+              disabled={checked.size === 0 || deleting || preparing !== null}
+              className={HEADER_BUTTON}
+            >
+              {preparing !== null ? `Đang tải ${preparing}/${checked.size}…` : "Lưu"}
+            </button>
             <button
               type="button"
               onClick={() => setPending(photos.filter((p) => checked.has(p.id)))}
@@ -500,6 +588,17 @@ export function AlbumDetail({ albumId }: { albumId: string }) {
             ))}
           </ul>
         </div>
+      )}
+
+      {ready && (
+        <ConfirmDialog
+          title={`Lưu ${ready.length} ảnh về máy?`}
+          message={'Chọn "Lưu vào Ảnh" ở bảng chia sẻ.'}
+          confirmLabel="Lưu"
+          tone="brand"
+          onConfirm={() => void shareReady(ready)}
+          onCancel={() => setReady(null)}
+        />
       )}
 
       {pending && (
