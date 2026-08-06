@@ -13,17 +13,33 @@ import type { CategorySlice } from "@/lib/stats";
  * mục lớn nhất nên danh mục đầu luôn đầy 100% dù nhãn ghi 74% — hai cách mã hoá
  * khác nhau nằm cạnh nhau, đọc là thấy sai ngay.
  */
-export function CategoryBars({ slices }: { slices: CategorySlice[] }) {
+interface Props {
+  slices: CategorySlice[];
+  /**
+   * Tiêu đề thẻ. Có prop này để trang sao kê dùng LẠI đúng component thay vì tự
+   * vẽ lại thanh — trước đây nó nhân bản markup và hai bên lệch nhau: home dùng
+   * bar-fill (dải màu), sao kê dùng bg-expense (một màu đặc), cùng một widget mà
+   * hai bộ mặt. Nhân bản là nguyên nhân, không phải màu.
+   */
+  title?: string;
+  emptyText?: string;
+}
+
+export function CategoryBars({
+  slices,
+  title = "Chi theo danh mục",
+  emptyText = "Tháng này chưa có khoản chi nào.",
+}: Props) {
   if (slices.length === 0) {
     return (
-      <Card>
-        <p className="text-muted py-6 text-center text-sm">Tháng này chưa có khoản chi nào.</p>
+      <Card title={title}>
+        <p className="text-muted py-6 text-center text-sm">{emptyText}</p>
       </Card>
     );
   }
 
   return (
-    <Card>
+    <Card title={title}>
       {/* space nhỏ lại vì mỗi dòng đã tự có py-1 cho vùng hover — tổng nhịp giữ nguyên */}
       <ul className="mt-3 space-y-0.5">
         {slices.map((slice, index) => (
@@ -64,10 +80,10 @@ export function CategoryBars({ slices }: { slices: CategorySlice[] }) {
   );
 }
 
-function Card({ children }: { children: React.ReactNode }) {
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="card animate-rise p-4">
-      <h2 className="text-sm font-semibold">Chi theo danh mục</h2>
+      <h2 className="text-sm font-semibold">{title}</h2>
       {children}
     </section>
   );
