@@ -39,6 +39,15 @@ export function roomId(a: string, b: string): string {
   return [a.toLowerCase().trim(), b.toLowerCase().trim()].sort().join("__");
 }
 
+/** Mức chất lượng camera bên chia sẻ chọn. Cao = nét nhưng tốn băng thông (dễ
+ *  giật qua 4G); "ideal" nên máy/mạng không kham nổi thì tự hạ. */
+export type Quality = "480p" | "720p" | "1080p";
+export const QUALITY: Record<Quality, { width: number; height: number }> = {
+  "480p": { width: 640, height: 480 },
+  "720p": { width: 1280, height: 720 },
+  "1080p": { width: 1920, height: 1080 },
+};
+
 // Presence: mỗi người trong room ghi một "nhịp tim" định kỳ. Ai đóng tab đột
 // ngột thì nhịp thôi cập nhật và bị coi là đã ra sau STALE_MS.
 const HEARTBEAT_MS = 5000;
@@ -79,6 +88,26 @@ export function watchRoomCount(
     ).length;
     onCount(n);
   });
+}
+
+/** Người xem yêu cầu bên chia sẻ đổi cam trước ("user") / sau ("environment"). */
+export async function requestFacing(
+  callId: string,
+  facing: "user" | "environment",
+): Promise<void> {
+  await updateDoc(doc(getDb(), "calls", callId), {
+    wantFacing: { at: Date.now(), facing },
+  }).catch(() => {});
+}
+
+/** Người xem yêu cầu bên chia sẻ đổi chất lượng. */
+export async function requestQuality(
+  callId: string,
+  quality: Quality,
+): Promise<void> {
+  await updateDoc(doc(getDb(), "calls", callId), {
+    wantQuality: { at: Date.now(), quality },
+  }).catch(() => {});
 }
 
 /** Hai email tạo nên room, suy ngược từ id. */
@@ -183,12 +212,77 @@ export async function shareCamera(params: {
     }
   }
 
+  // Đổi mặt camera theo yêu cầu người xem, thay track thẳng trên sender (không
+  // cần đàm phán lại). Cập nhật cả params.stream để bản xem trước của mình + lần
+  // đàm phán sau đều dùng camera mới.
+  let lastFacingAt = 0;
+  async function switchFacing(facing: "user" | "environment") {
+    try {
+      const ns = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facing },
+        audio: false,
+      });
+      const nt = ns.getVideoTracks()[0];
+      if (!nt) return;
+      const old = params.stream.getVideoTracks()[0];
+      if (old) {
+        params.stream.removeTrack(old);
+        old.stop();
+      }
+      params.stream.addTrack(nt);
+      const sender = pc?.getSenders().find((s) => s.track?.kind === "video");
+      await sender?.replaceTrack(nt);
+    } catch (err) {
+      console.error("[call] đổi cam lỗi", err);
+    }
+  }
+
+  // Đổi chất lượng theo yêu cầu người xem: áp thẳng lên track đang chạy, không
+  // cần lấy stream mới hay đàm phán lại.
+  let lastQualityAt = 0;
+  async function applyQuality(quality: Quality) {
+    try {
+      const q = QUALITY[quality];
+      const vt = params.stream.getVideoTracks()[0];
+      if (!q || !vt) return;
+      await vt.applyConstraints({
+        width: { ideal: q.width },
+        height: { ideal: q.height },
+      });
+    } catch (err) {
+      console.error("[call] đổi chất lượng lỗi", err);
+    }
+  }
+
   let lastWant: unknown = null;
   const unsubDoc = onSnapshot(
     callRef,
     (s) => {
       const d = s.data();
       if (!d) return;
+      // Người xem yêu cầu đổi cam trước/sau (chỉ nhận yêu cầu còn tươi).
+      const wf = d.wantFacing;
+      if (
+        wf &&
+        typeof wf.at === "number" &&
+        wf.at > lastFacingAt &&
+        Date.now() - wf.at < 40000
+      ) {
+        lastFacingAt = wf.at;
+        void switchFacing(wf.facing === "environment" ? "environment" : "user");
+      }
+      // Người xem yêu cầu đổi chất lượng (còn tươi).
+      const wq = d.wantQuality;
+      if (
+        wq &&
+        typeof wq.at === "number" &&
+        wq.at > lastQualityAt &&
+        Date.now() - wq.at < 40000 &&
+        QUALITY[wq.quality as Quality]
+      ) {
+        lastQualityAt = wq.at;
+        void applyQuality(wq.quality as Quality);
+      }
       // Bên xem xin offer (vào / vào lại) → tạo offer mới.
       if (d.wantOffer && d.wantOffer !== lastWant) {
         lastWant = d.wantOffer;
