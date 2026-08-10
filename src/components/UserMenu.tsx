@@ -6,7 +6,7 @@ import type { User } from "firebase/auth";
 import { isAdminEmail } from "@/lib/admin";
 import { monthYearInVN } from "@/lib/date";
 import { useRevealOnOpen } from "@/lib/reveal";
-import { ImageIcon, UsersIcon } from "./icons";
+import { CameraIcon, ImageIcon, UsersIcon } from "./icons";
 import { PushToggle } from "./PushToggle";
 
 interface Props {
@@ -111,6 +111,21 @@ export function UserMenu({ user, onSignOut }: Props) {
             >
               <UsersIcon size={16} gradient />
               Quản lý người dùng
+            </Link>
+          )}
+
+          {/* Trang test camera — chỉ hiện đúng cho tài khoản của Cường, không
+              phải cho cả nhóm admin. Đây là chỗ thử nghiệm, không phải tính
+              năng chung. */}
+          {user.email?.toLowerCase() === "cuongnguyen21101999@gmail.com" && (
+            <Link
+              href="/camera-test"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="border-hairline hover:bg-expense/8 flex items-center gap-2 border-t px-4 py-3 text-sm font-medium transition"
+            >
+              <CameraIcon size={16} gradient />
+              Camera
             </Link>
           )}
 
