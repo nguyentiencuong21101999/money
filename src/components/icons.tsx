@@ -108,6 +108,21 @@ export function CameraIcon(props: {
   );
 }
 
+export function FlipCameraIcon(props: {
+  size?: number;
+  className?: string;
+  gradient?: boolean;
+}) {
+  return (
+    <Icon {...props}>
+      {/* Hai mũi tên vòng quanh ống kính — nghĩa "đổi mặt camera". */}
+      <circle cx="12" cy="12" r="3" />
+      <path d="M4 8a8 8 0 0 1 13-2.5M20 6v4h-4" />
+      <path d="M20 16a8 8 0 0 1-13 2.5M4 18v-4h4" />
+    </Icon>
+  );
+}
+
 export function ChevronRightIcon(props: {
   size?: number;
   className?: string;
