@@ -113,20 +113,17 @@ export function useTransactions(
             rows.map((r) => `${r.month} ${r.amount} ${r.note}`),
           );
         }
-        // Cache trên đĩa trả lời trước server, và lần đầu mở app trên một máy
-        // thì câu trả lời đó là danh sách rỗng. Rỗng-mà-từ-cache CHƯA phải là
-        // "đã có dữ liệu": tắt màn chờ lúc đó thì người dùng thấy trang trắng,
-        // một lúc sau số mới đổ về — đúng cái cần tránh.
-        const settled = !snap.metadata.fromCache || rows.length > 0;
-        if (settled) clearTimeout(giveUp);
-        setState((s) => ({
-          data: rows,
-          // `s.loading &&` để màn chờ chỉ hiện đúng lúc mở app. Đổi tháng cũng
-          // là đổi query, snapshot đầu của query mới cũng có thể rỗng, nhưng
-          // lúc đó không được che cả trang lại lần nữa.
-          loading: s.loading && !settled,
-          error: null,
-        }));
+        // Coi snapshot đầu tiên là đã xong, kể cả rỗng-từ-cache — giống
+        // useBudget. Trước đây rỗng-từ-cache KHÔNG được coi là "đã có dữ liệu"
+        // nên acc chưa có giao dịch phải chờ server mỗi lần mở (tới 8s trên
+        // mạng chậm), trong khi acc có data hiện ngay từ cache.
+        //
+        // Đánh đổi: lần ĐẦU mở một acc CÓ giao dịch trên máy chưa có cache sẽ
+        // thấy trang rỗng một nhịp rồi số đổ về. Hiếm (chỉ máy mới/lần đầu);
+        // các lần sau cache đã ấm nên hiện ngay đúng số. Acc rỗng thì không có
+        // gì để nhấp nháy.
+        clearTimeout(giveUp);
+        setState({ data: rows, loading: false, error: null });
       },
       (err) => {
         clearTimeout(giveUp);

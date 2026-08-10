@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ButtonHTMLAttributes } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { roomId } from "@/lib/call";
@@ -9,6 +9,26 @@ import { HEADER_BUTTON, HOME_CRUMB, PageHeader } from "./PageHeader";
 import { CameraIcon } from "./icons";
 
 const TRAIL = [HOME_CRUMB];
+
+/**
+ * Nút hành động chính của trang gọi (Đồng ý chia sẻ, Vào room xem) — cùng một
+ * kiểu bg-expense bo tròn. Gom về đây để khỏi lặp chuỗi class ở mỗi chỗ; truyền
+ * thêm layout riêng (flex-1, gap…) qua `className`.
+ */
+function ActionButton({
+  className = "",
+  children,
+  ...rest
+}: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      {...rest}
+      className={`bg-expense rounded-xl px-6 py-3 text-sm font-medium text-white transition active:scale-[0.98] disabled:opacity-50 ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
 
 interface Props {
   /** `?xem=<roomId>` => màn xác nhận CHIA SẺ camera của mình. */
@@ -60,10 +80,13 @@ function ShareMode({ callId }: { callId: string }) {
             Đang chia sẻ camera với {call.peerName}
           </p>
           <p className="text-muted mt-1 text-sm">
-            Khung nổi góc màn hình luôn hiện để bạn biết camera đang được chia sẻ.
-            Bấm Dừng ở đó bất cứ lúc nào.
+            Khung nổi góc màn hình luôn hiện để bạn biết camera đang được chia
+            sẻ. Bấm Dừng ở đó bất cứ lúc nào.
           </p>
-          <Link href="/" className="text-expense mt-6 inline-block text-sm font-medium">
+          <Link
+            href="/"
+            className="text-expense mt-6 inline-block text-sm font-medium"
+          >
             Về trang chủ
           </Link>
         </div>
@@ -93,16 +116,18 @@ function ShareMode({ callId }: { callId: string }) {
           >
             Từ chối
           </Link>
-          <button
+          <ActionButton
             onClick={() => void agree()}
             disabled={starting}
-            className="bg-expense flex-1 rounded-xl px-6 py-3 text-sm font-medium text-white transition active:scale-[0.98] disabled:opacity-50"
+            className="flex-1"
           >
             {starting ? "Đang mở…" : "Đồng ý chia sẻ"}
-          </button>
+          </ActionButton>
         </div>
         {error && (
-          <p className="text-expense whitespace-pre-line text-center text-sm">{error}</p>
+          <p className="text-expense whitespace-pre-line text-center text-sm">
+            {error}
+          </p>
         )}
       </div>
     </>
@@ -156,7 +181,8 @@ function ViewMode({ prefillEmail }: { prefillEmail: string | null }) {
         error?: string;
         sent?: number;
       };
-      if (!res.ok) throw new Error(data.error ?? `Máy chủ trả lỗi ${res.status}.`);
+      if (!res.ok)
+        throw new Error(data.error ?? `Máy chủ trả lỗi ${res.status}.`);
       setNotice(
         data.sent && data.sent > 0
           ? `Đã gửi thông báo (đẩy tới ${data.sent} máy).`
@@ -189,13 +215,18 @@ function ViewMode({ prefillEmail }: { prefillEmail: string | null }) {
       <>
         {header}
         <div className="mt-8 text-center">
-          <p className="text-sm font-medium">Đang ở trong room với {call.peerName}</p>
+          <p className="text-sm font-medium">
+            Đang ở trong room với {call.peerName}
+          </p>
           <p className="text-muted mt-1 text-sm">
             {call.remoteStream
               ? "Hình đang hiện toàn màn hình."
               : "Chưa có ai chia sẻ. Khi họ bật camera, hình sẽ tự hiện."}
           </p>
-          <Link href="/" className="text-expense mt-6 inline-block text-sm font-medium">
+          <Link
+            href="/"
+            className="text-expense mt-6 inline-block text-sm font-medium"
+          >
             Về trang chủ
           </Link>
         </div>
@@ -209,25 +240,29 @@ function ViewMode({ prefillEmail }: { prefillEmail: string | null }) {
       <div className="mt-6 flex flex-col gap-5">
         {target ? (
           <p className="text-muted text-sm">
-            Vào room của <span className="text-ink-2 font-medium">{target}</span> để
-            xem camera của họ. Chỉ thấy hình khi họ đang chủ động chia sẻ.
+            Vào room của{" "}
+            <span className="text-ink-2 font-medium">{target}</span> để xem
+            camera của họ. Chỉ thấy hình khi họ đang chủ động chia sẻ.
           </p>
         ) : (
           <p className="text-muted text-sm">
-            Mở từ trang Quản lý người dùng → chọn người → bấm &quot;Vào room&quot;.
+            Mở từ trang Quản lý người dùng → chọn người → bấm &quot;Vào
+            room&quot;.
           </p>
         )}
-        <button
+        <ActionButton
           onClick={() => void join()}
           disabled={starting || !target}
-          className="bg-expense flex items-center justify-center gap-2 rounded-xl px-6 py-3 font-medium text-white transition active:scale-[0.98] disabled:opacity-50"
+          className="flex items-center justify-center gap-2"
         >
           <CameraIcon size={18} />
           {starting ? "Đang vào…" : "Vào room xem"}
-        </button>
+        </ActionButton>
         {notice && <p className="text-brand text-center text-sm">{notice}</p>}
         {error && (
-          <p className="text-expense whitespace-pre-line text-center text-sm">{error}</p>
+          <p className="text-expense whitespace-pre-line text-center text-sm">
+            {error}
+          </p>
         )}
       </div>
     </>

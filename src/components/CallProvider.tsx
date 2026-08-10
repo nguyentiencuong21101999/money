@@ -71,17 +71,17 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const handleRef = useRef<ShareSession | ViewSession | null>(null);
   const presenceRef = useRef<Presence | null>(null);
   const countUnsubRef = useRef<Unsubscribe | null>(null);
-  // Room + mặt cam hiện tại của bên xem, để nút "Đổi cam" gửi yêu cầu.
+  // Room hiện tại của bên xem, để nút "Đổi cam" / chất lượng gửi yêu cầu.
   const viewCallIdRef = useRef<string | null>(null);
   const facingRef = useRef<"user" | "environment">("user");
-  // Bên chia sẻ: chỉ bật cam khi có người vào room. Giữ ngữ cảnh để bật khi
-  // presence >= 2, camera đang chạy giữ ở captureRef.
+  // Bên chia sẻ: chỉ bật cam khi có người vào room. Quyền đã xin sẵn lúc bấm,
+  // camera thật giữ ở captureRef, bật/tắt theo presence.
   const roleRef = useRef<"sharer" | "viewer" | null>(null);
   const shareCtxRef = useRef<{ callId: string; email: string; quality: Quality } | null>(null);
   const captureRef = useRef<{ handle: ShareSession; stream: MediaStream } | null>(null);
   const startingRef = useRef(false);
 
-  // Bật camera thật + bắt đầu signaling. Gọi khi có người vào room.
+  // Bật camera thật + signaling khi có người trong room.
   const startCapture = useCallback(async () => {
     const ctx = shareCtxRef.current;
     if (!ctx || captureRef.current || startingRef.current) return;
@@ -101,6 +101,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         callId: ctx.callId,
         myEmail: ctx.email,
         stream,
+        quality: ctx.quality,
         onState: (connState) => setCall((c) => (c ? { ...c, connState } : c)),
       });
       captureRef.current = { handle, stream };
@@ -112,7 +113,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Tắt camera khi còn một mình (giữ mặt trong room, chờ người vào lại).
+  // Còn một mình → tắt cam, giữ mặt trong room chờ người vào lại.
   const stopCapture = useCallback(() => {
     captureRef.current?.handle.stop();
     captureRef.current?.stream.getTracks().forEach((t) => t.stop());
@@ -120,7 +121,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setCall((c) => (c ? { ...c, localStream: null, connState: null } : c));
   }, []);
 
-  // Đếm người trong room + đánh dấu mình đang ở đó. Bên chia sẻ: >=2 mới bật cam.
   const trackPresence = useCallback(
     (callId: string, email: string) => {
       presenceRef.current = enterRoom(callId, email);
@@ -171,14 +171,26 @@ export function CallProvider({ children }: { children: ReactNode }) {
       if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
         throw new Error("Trang phải chạy trên HTTPS thì mới bật được camera.");
       }
-      // Xin quyền một nhịp NGAY trong cú bấm (iOS cần cử chỉ cho lần đầu), rồi
-      // tắt liền: chưa có ai xem thì KHÔNG giữ camera, màn hình đen. Cam chỉ bật
-      // khi presence >= 2 (xem trackPresence).
-      const primer = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-      primer.getTracks().forEach((t) => t.stop());
+      // Kiểm quyền TRƯỚC bằng Permissions API — không đụng tới camera. Nếu ĐÃ
+      // cấp quyền thì khỏi "chớp" gì cả: cam chỉ bật khi có người vào room. Chỉ
+      // khi CHƯA cấp (hoặc trình duyệt không cho kiểm) mới phải xin một nhịp
+      // trong cú bấm này rồi tắt liền (iOS cần cử chỉ cho lần xin quyền đầu).
+      let granted = false;
+      try {
+        const status = await navigator.permissions?.query({
+          name: "camera" as PermissionName,
+        });
+        granted = status?.state === "granted";
+      } catch {
+        // Safari cũ / không hỗ trợ query "camera" → coi như chưa biết, đi xin.
+      }
+      if (!granted) {
+        const primer = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+        primer.getTracks().forEach((t) => t.stop());
+      }
 
       const email = user.email.toLowerCase();
       const viewerEmail =
@@ -265,9 +277,7 @@ function stateLabel(s: RTCPeerConnectionState | null): string {
 }
 
 /**
- * Khung video nổi, hiện ở mọi trang khi có cuộc gọi. Với bên chia sẻ hiện camera
- * của chính họ kèm chữ "Đang chia sẻ camera với …" — dấu hiệu luôn thấy để
- * không bao giờ quên mình đang phát.
+ * Chọn khung theo vai: client (chia sẻ) và manager (xem) có giao diện riêng.
  */
 function FloatingCall({
   call,
@@ -280,24 +290,119 @@ function FloatingCall({
   onSwitchCamera: () => void;
   onSwitchQuality: (quality: Quality) => void;
 }) {
+  if (!call) return null;
+  if (call.role === "sharer") {
+    return <SharerWidget call={call} onHangUp={onHangUp} />;
+  }
+  return (
+    <ViewerWidget
+      call={call}
+      onHangUp={onHangUp}
+      onSwitchCamera={onSwitchCamera}
+      onSwitchQuality={onSwitchQuality}
+    />
+  );
+}
+
+/**
+ * Khung nổi nhỏ của NGƯỜI CHIA SẺ (client): hiện camera của chính mình, dấu
+ * "đang chia sẻ / đang chờ" + nút Dừng. Camera chỉ bật khi có người vào room
+ * (localStream mới có), còn một mình thì đen + "đang chờ".
+ */
+function SharerWidget({
+  call,
+  onHangUp,
+}: {
+  call: CallState;
+  onHangUp: () => void;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const isSharer = call?.role === "sharer";
-  const stream = isSharer ? call?.localStream : call?.remoteStream;
-  // Bên xem bắt đầu ở trạng thái tắt tiếng để iOS chịu tự phát; chạm để bật.
+  const stream = call.localStream;
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (!stream) {
+      el.srcObject = null;
+      return;
+    }
+    const attach = () => {
+      el.srcObject = stream;
+      void el.play().catch(() => {});
+    };
+    attach();
+    stream.addEventListener("addtrack", attach);
+    return () => stream.removeEventListener("addtrack", attach);
+  }, [stream]);
+
+  const waiting = !stream;
+  return (
+    <div className="hidden fixed right-3 bottom-3 z-50 w-44 overflow-hidden rounded-2xl bg-black/85 shadow-lg">
+      <div className="relative aspect-3/4 w-full bg-black">
+        <video
+          ref={videoRef}
+          playsInline
+          autoPlay
+          muted
+          className="h-full w-full object-contain"
+        />
+        <span className="absolute left-1.5 top-1.5 flex items-center gap-1 rounded-full bg-critical/90 px-1.5 py-0.5 text-[10px] font-medium text-white">
+          <span className="h-1.5 w-1.5 rounded-full bg-white" />
+          {waiting ? "Đang chờ" : "Đang chia sẻ"}
+        </span>
+        <span className="absolute right-1.5 top-1.5 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
+          {call.count} trong room
+        </span>
+      </div>
+      <div className="px-2 py-1.5">
+        <p className="truncate text-[11px] font-medium text-white">
+          {waiting
+            ? `Chờ ${call.peerName} vào room mới bật cam`
+            : `Đang chia sẻ camera với ${call.peerName}`}
+        </p>
+        <p className="text-[10px] text-white/60">{stateLabel(call.connState)}</p>
+        <button
+          type="button"
+          onClick={onHangUp}
+          className="mt-1 w-full rounded-lg bg-white/15 py-1 text-[11px] font-medium text-white transition active:scale-[0.97]"
+        >
+          Dừng
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Khung của NGƯỜI XEM (manager): mặc định toàn màn hình — có đổi cam, đổi chất
+ * lượng, zoom số, chạm bật tiếng; bấm "Thu nhỏ" về khung nổi để vừa xem vừa
+ * dùng app.
+ */
+function ViewerWidget({
+  call,
+  onHangUp,
+  onSwitchCamera,
+  onSwitchQuality,
+}: {
+  call: CallState;
+  onHangUp: () => void;
+  onSwitchCamera: () => void;
+  onSwitchQuality: (quality: Quality) => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  // Bắt đầu tắt tiếng để iOS chịu tự phát; chạm để bật.
   const [soundOn, setSoundOn] = useState(false);
-  // Bên xem mặc định toàn màn hình; thu nhỏ về khung nổi nếu muốn vừa xem vừa
-  // dùng app.
   const [minimized, setMinimized] = useState(false);
-  const muted = isSharer || !soundOn;
+  // Zoom SỐ (phóng hình nhận được bằng CSS) — iOS không cho zoom quang qua track.
+  const [zoom, setZoom] = useState(1);
+  const stream = call.remoteStream;
 
   function toggleSound() {
-    if (isSharer) return;
     const el = videoRef.current;
     const next = !soundOn;
     setSoundOn(next);
     if (el) {
       el.muted = !next;
-      // play() trong cú chạm mới được iOS cho phát KÈM tiếng.
       void el.play().catch(() => {});
     }
   }
@@ -305,14 +410,10 @@ function FloatingCall({
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
-    // Hết stream (bên kia dừng) → xoá khung, không để đứng hình cũ.
     if (!stream) {
       el.srcObject = null;
       return;
     }
-    // Gắn lại srcObject + phát. Safari chặn tự phát video CÓ TIẾNG khi không có
-    // cú bấm trực tiếp → thử phát, bị chặn thì mute rồi phát lại (thấy hình,
-    // tạm mất tiếng).
     const attach = () => {
       el.srcObject = stream;
       el.play().catch(() => {
@@ -321,36 +422,29 @@ function FloatingCall({
       });
     };
     attach();
-    // Track video của bên kia thường tới SAU khi gán srcObject; nghe addtrack để
-    // gắn lại, không thì Safari cứ đen hình.
     stream.addEventListener("addtrack", attach);
     return () => stream.removeEventListener("addtrack", attach);
     // `minimized` trong deps: đổi chế độ làm video remount, phải gắn lại srcObject.
   }, [stream, minimized]);
 
-  if (!call) return null;
-
-  const label = isSharer
-    ? call.localStream
-      ? `Đang chia sẻ camera với ${call.peerName}`
-      : `Chờ ${call.peerName} vào room mới bật cam`
-    : call.remoteStream
-      ? `Đang xem camera của ${call.peerName}`
-      : `Chưa có ai trong room (${call.peerName})`;
+  const label = call.remoteStream
+    ? `Đang xem camera của ${call.peerName}`
+    : `Chưa có ai trong room (${call.peerName})`;
 
   const video = (
     <video
       ref={videoRef}
       playsInline
       autoPlay
-      muted={muted}
-      className="h-full w-full object-contain"
+      muted={!soundOn}
+      style={{ transform: `scale(${zoom})`, transformOrigin: "center" }}
+      className="h-full w-full object-contain transition-transform"
     />
   );
   const liveBadge = (
     <span className="absolute left-1.5 top-1.5 flex items-center gap-1 rounded-full bg-critical/90 px-1.5 py-0.5 text-[10px] font-medium text-white">
       <span className="h-1.5 w-1.5 rounded-full bg-white" />
-      {isSharer ? (call.localStream ? "Đang chia sẻ" : "Đang chờ") : "LIVE"}
+      LIVE
     </span>
   );
   const countBadge = (
@@ -359,8 +453,8 @@ function FloatingCall({
     </span>
   );
 
-  // Bên xem, toàn màn hình.
-  if (!isSharer && !minimized) {
+  // Toàn màn hình.
+  if (!minimized) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-black">
         <div
@@ -404,6 +498,31 @@ function FloatingCall({
               🔇 Chạm để bật tiếng
             </span>
           )}
+          {/* Zoom số: phóng to hình nhận được. */}
+          {call.remoteStream && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute top-1/2 right-2 flex -translate-y-1/2 flex-col items-center gap-1"
+            >
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.min(4, +(z + 0.5).toFixed(1)))}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-lg font-semibold text-white"
+              >
+                +
+              </button>
+              <span className="rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                {zoom}x
+              </span>
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.max(1, +(z - 0.5).toFixed(1)))}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-lg font-semibold text-white"
+              >
+                −
+              </button>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2 bg-black/90 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div className="min-w-0 flex-1">
@@ -438,23 +557,19 @@ function FloatingCall({
     );
   }
 
-  // Khung nổi nhỏ: bên chia sẻ, hoặc bên xem đã thu nhỏ.
+  // Đã thu nhỏ: khung nổi nhỏ, chạm để mở to lại.
   return (
     <div className="fixed right-3 bottom-3 z-50 w-44 overflow-hidden rounded-2xl bg-black/85 shadow-lg">
       <div
-        onClick={isSharer ? undefined : () => setMinimized(false)}
-        className={`relative aspect-3/4 w-full bg-black ${
-          isSharer ? "" : "cursor-pointer"
-        }`}
+        onClick={() => setMinimized(false)}
+        className="relative aspect-3/4 w-full cursor-pointer bg-black"
       >
         {video}
         {liveBadge}
         {countBadge}
-        {!isSharer && (
-          <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
-            Chạm để mở to
-          </span>
-        )}
+        <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
+          Chạm để mở to
+        </span>
       </div>
       <div className="px-2 py-1.5">
         <p className="truncate text-[11px] font-medium text-white">{label}</p>
