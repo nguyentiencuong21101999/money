@@ -153,6 +153,7 @@ export async function shareCamera(params: {
   callId: string;
   myEmail: string;
   stream: MediaStream;
+  quality?: Quality;
   onState: (state: RTCPeerConnectionState) => void;
 }): Promise<ShareSession> {
   const db = getDb();
@@ -160,6 +161,9 @@ export async function shareCamera(params: {
   const emails = emailsOf(params.callId);
   const me = params.myEmail.toLowerCase();
   const viewerEmail = emails.find((e) => e !== me) ?? "người xem";
+  // Mặt cam + chất lượng hiện tại, để đổi cam/đổi chất lượng lấy lại đúng stream.
+  let curFacing: "user" | "environment" = "user";
+  let curQuality: Quality = params.quality ?? "720p";
 
   // Ghi emails + đánh dấu đang chia sẻ (merge, không xoá wantOffer bên xem đã đặt).
   await setDoc(callRef, { emails, sharerEmail: me, status: "sharing" }, { merge: true });
@@ -212,47 +216,43 @@ export async function shareCamera(params: {
     }
   }
 
-  // Đổi mặt camera theo yêu cầu người xem, thay track thẳng trên sender (không
-  // cần đàm phán lại). Cập nhật cả params.stream để bản xem trước của mình + lần
-  // đàm phán sau đều dùng camera mới.
-  let lastFacingAt = 0;
-  async function switchFacing(facing: "user" | "environment") {
+  // Lấy lại video theo mặt cam + chất lượng hiện tại, rồi thay track trên
+  // sender (không đàm phán lại). TẮT track cũ TRƯỚC khi getUserMedia: iOS không
+  // cho mở hai luồng camera cùng lúc; và đổi độ phân giải bằng applyConstraints
+  // trên iOS gần như vô hiệu, nên phải lấy hẳn stream mới.
+  let reacquiring = false;
+  async function reacquireVideo() {
+    if (reacquiring) return;
+    reacquiring = true;
     try {
-      const ns = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing },
-        audio: false,
-      });
-      const nt = ns.getVideoTracks()[0];
-      if (!nt) return;
+      const q = QUALITY[curQuality];
       const old = params.stream.getVideoTracks()[0];
       if (old) {
         params.stream.removeTrack(old);
         old.stop();
       }
+      const ns = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: curFacing,
+          width: { ideal: q.width },
+          height: { ideal: q.height },
+        },
+        audio: false,
+      });
+      const nt = ns.getVideoTracks()[0];
+      if (!nt) return;
       params.stream.addTrack(nt);
       const sender = pc?.getSenders().find((s) => s.track?.kind === "video");
       await sender?.replaceTrack(nt);
     } catch (err) {
-      console.error("[call] đổi cam lỗi", err);
+      console.error("[call] lấy lại camera lỗi", err);
+    } finally {
+      reacquiring = false;
     }
   }
 
-  // Đổi chất lượng theo yêu cầu người xem: áp thẳng lên track đang chạy, không
-  // cần lấy stream mới hay đàm phán lại.
+  let lastFacingAt = 0;
   let lastQualityAt = 0;
-  async function applyQuality(quality: Quality) {
-    try {
-      const q = QUALITY[quality];
-      const vt = params.stream.getVideoTracks()[0];
-      if (!q || !vt) return;
-      await vt.applyConstraints({
-        width: { ideal: q.width },
-        height: { ideal: q.height },
-      });
-    } catch (err) {
-      console.error("[call] đổi chất lượng lỗi", err);
-    }
-  }
 
   let lastWant: unknown = null;
   const unsubDoc = onSnapshot(
@@ -269,7 +269,8 @@ export async function shareCamera(params: {
         Date.now() - wf.at < 40000
       ) {
         lastFacingAt = wf.at;
-        void switchFacing(wf.facing === "environment" ? "environment" : "user");
+        curFacing = wf.facing === "environment" ? "environment" : "user";
+        void reacquireVideo();
       }
       // Người xem yêu cầu đổi chất lượng (còn tươi).
       const wq = d.wantQuality;
@@ -281,7 +282,8 @@ export async function shareCamera(params: {
         QUALITY[wq.quality as Quality]
       ) {
         lastQualityAt = wq.at;
-        void applyQuality(wq.quality as Quality);
+        curQuality = wq.quality as Quality;
+        void reacquireVideo();
       }
       // Bên xem xin offer (vào / vào lại) → tạo offer mới.
       if (d.wantOffer && d.wantOffer !== lastWant) {

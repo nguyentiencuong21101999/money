@@ -9,6 +9,7 @@ import { monthYearInVN } from "@/lib/date";
 import { useRevealOnOpen } from "@/lib/reveal";
 import { CameraIcon, ImageIcon, UsersIcon } from "./icons";
 import { PushToggle } from "./PushToggle";
+import { useCall } from "./CallProvider";
 
 interface Props {
   user: User;
@@ -91,6 +92,8 @@ export function UserMenu({ user, onSignOut }: Props) {
 
           <PushToggle uid={user.uid} />
 
+          <CameraToggle user={user} />
+
           {/* Thư viện ảnh — cho mọi người, không riêng admin: mỗi người chỉ thấy
               album của chính mình (firestore.rules chặn theo uid). */}
           <Link
@@ -106,7 +109,7 @@ export function UserMenu({ user, onSignOut }: Props) {
           {/* Chia sẻ camera của mình cho quản trị viên. Bấm là mở trang xác nhận
               (KHÔNG tự bật cam) — người dùng tự đồng ý và luôn thấy dấu "đang
               chia sẻ" khi bật. */}
-          {user.email && ADMIN_EMAILS[0] && (
+          {/* {user.email && ADMIN_EMAILS[0] && (
             <Link
               href={`/goi?xem=${encodeURIComponent(roomId(user.email, ADMIN_EMAILS[0]))}`}
               role="menuitem"
@@ -116,7 +119,7 @@ export function UserMenu({ user, onSignOut }: Props) {
               <CameraIcon size={16} gradient />
               Chia sẻ camera
             </Link>
-          )}
+          )} */}
 
           {isAdminEmail(user.email) && (
             <Link
@@ -141,6 +144,66 @@ export function UserMenu({ user, onSignOut }: Props) {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Hàng "Camera" trong menu, có công tắc giống "Thông báo" — hiện tại CHƯA nối
+ * việc gì (để dành), gạt chỉ đổi trạng thái công tắc.
+ */
+function CameraToggle({ user }: { user: User }) {
+  const { call, share, hangUp } = useCall();
+  const [working, setWorking] = useState(false);
+  // Trạng thái bật = mình đang chia sẻ camera (đồng bộ cả khi Dừng ở khung nổi).
+  const on = call?.role === "sharer";
+
+  // Bật = chia sẻ camera của mình cho admin; tắt = dừng chia sẻ.
+  async function turnOn() {
+    if (!user.email || !ADMIN_EMAILS[0]) return;
+    await share(roomId(user.email, ADMIN_EMAILS[0]));
+  }
+  function turnOff() {
+    hangUp();
+  }
+
+  async function toggle() {
+    setWorking(true);
+    try {
+      if (on) turnOff();
+      else await turnOn();
+    } catch (e) {
+      console.error("[camera] toggle", e);
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return (
+    <div className="border-hairline border-t px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="flex items-center gap-2 text-sm font-medium">
+          <CameraIcon size={16} gradient />
+          Camera
+        </p>
+        <button
+          type="button"
+          role="menuitemcheckbox"
+          aria-checked={on}
+          aria-label="Camera"
+          onClick={() => void toggle()}
+          disabled={working}
+          className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ease-out active:scale-95 disabled:opacity-45 ${
+            on ? "bar-fill" : "bg-axis"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${
+              on ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </div>
     </div>
   );
 }
