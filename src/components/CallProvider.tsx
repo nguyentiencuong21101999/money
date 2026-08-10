@@ -343,7 +343,7 @@ function SharerWidget({
           ref={videoRef}
           playsInline
           autoPlay
-          muted
+          muteds
           className="h-full w-full object-contain"
         />
         <span className="absolute left-1.5 top-1.5 flex items-center gap-1 rounded-full bg-critical/90 px-1.5 py-0.5 text-[10px] font-medium text-white">
