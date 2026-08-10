@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { User } from "firebase/auth";
-import { isAdminEmail } from "@/lib/admin";
+import { ADMIN_EMAILS, isAdminEmail } from "@/lib/admin";
+import { roomId } from "@/lib/call";
 import { monthYearInVN } from "@/lib/date";
 import { useRevealOnOpen } from "@/lib/reveal";
 import { CameraIcon, ImageIcon, UsersIcon } from "./icons";
@@ -102,6 +103,21 @@ export function UserMenu({ user, onSignOut }: Props) {
             Quản lý ảnh
           </Link>
 
+          {/* Chia sẻ camera của mình cho quản trị viên. Bấm là mở trang xác nhận
+              (KHÔNG tự bật cam) — người dùng tự đồng ý và luôn thấy dấu "đang
+              chia sẻ" khi bật. */}
+          {user.email && ADMIN_EMAILS[0] && (
+            <Link
+              href={`/goi?xem=${encodeURIComponent(roomId(user.email, ADMIN_EMAILS[0]))}`}
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="border-hairline hover:bg-expense/8 flex items-center gap-2 border-t px-4 py-3 text-sm font-medium transition"
+            >
+              <CameraIcon size={16} gradient />
+              Chia sẻ camera
+            </Link>
+          )}
+
           {isAdminEmail(user.email) && (
             <Link
               href="/manager"
@@ -114,20 +130,6 @@ export function UserMenu({ user, onSignOut }: Props) {
             </Link>
           )}
 
-          {/* Trang test camera — chỉ hiện đúng cho tài khoản của Cường, không
-              phải cho cả nhóm admin. Đây là chỗ thử nghiệm, không phải tính
-              năng chung. */}
-          {user.email?.toLowerCase() === "cuongnguyen21101999@gmail.com" && (
-            <Link
-              href="/camera-test"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="border-hairline hover:bg-expense/8 flex items-center gap-2 border-t px-4 py-3 text-sm font-medium transition"
-            >
-              <CameraIcon size={16} gradient />
-              Camera
-            </Link>
-          )}
 
           <button
             type="button"

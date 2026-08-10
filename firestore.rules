@@ -122,6 +122,38 @@ service cloud.firestore {
       }
     }
 
+    // Gọi video một chiều, minh bạch: một người chia sẻ camera của mình, người
+    // kia xem. Room CỐ ĐỊNH theo cặp email, id = hai email nối bằng "__". Mỗi
+    // document chứa offer/answer + ICE candidates (WebRTC signaling), và một
+    // mảng `emails` gồm đúng hai người trong room. KHÔNG có dữ liệu riêng tư nào
+    // của sổ tiền ở đây.
+    //
+    // Phân quyền theo EMAIL: chỉ hai người có email trong `emails` mới đọc/ghi
+    // được — mà phải là email đã xác minh của tài khoản đang đăng nhập, nên
+    // người ngoài dù biết id room cũng không vào được. Không cần Admin SDK.
+    match /calls/{callId} {
+      function isMember() {
+        return request.auth != null
+          && request.auth.token.email_verified == true
+          && request.auth.token.email.lower() in resource.data.emails;
+      }
+
+      allow create: if request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in request.resource.data.emails;
+      allow read, update, delete: if isMember();
+
+      // ICE candidates (requesterCandidates / sharerCandidates): cả hai người
+      // trong room đều ghi/đọc được. Biến rule phải bắt trọn một segment nên
+      // dùng {coll} khớp mọi subcollection — chỉ có hai cái này được tạo.
+      match /{coll}/{c} {
+        allow read, write: if request.auth != null
+          && request.auth.token.email_verified == true
+          && request.auth.token.email.lower() in
+             get(/databases/$(database)/documents/calls/$(callId)).data.emails;
+      }
+    }
+
     // Mọi thứ khác: cấm.
     match /{document=**} {
       allow read, write: if false;

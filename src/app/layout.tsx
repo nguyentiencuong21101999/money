@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
+import { CallProvider } from "@/components/CallProvider";
 import { ScrollTopButton } from "@/components/ScrollTopButton";
 
 export const metadata: Metadata = {
@@ -49,7 +50,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-full">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <CallProvider>{children}</CallProvider>
+        </AuthProvider>
         {/*
           Đặt ở layout gốc nên có mặt ở MỌI trang, khỏi phải gắn tay từng chỗ và
           khỏi lỡ một trang nào. Nút tự ẩn khi chưa cuộn quá một màn hình, nên ở
