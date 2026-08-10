@@ -70,6 +70,16 @@ export function UserDetail({ uid }: { uid: string }) {
             >
               Gửi thông báo
             </button>
+            {/* Vào room xem camera: gửi yêu cầu, người kia phải bấm Đồng ý thì
+                cam mới lên — xem CallRoom. */}
+            {profile?.email && (
+              <Link
+                href={`/goi?goi=${encodeURIComponent(profile.email)}`}
+                className="glass-chip ring-ramp text-ink-2 flex-1 rounded-full px-3 py-2 text-center text-xs font-medium whitespace-nowrap transition active:scale-[0.97] sm:flex-none"
+              >
+                Vào room
+              </Link>
+            )}
           </div>
         </section>
       )}
