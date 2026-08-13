@@ -32,5 +32,8 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  // `mobile/` là app React Native, có tsconfig riêng và lib khác hẳn (react-native
+  // thay vì dom). Không loại ra thì `include: **/*.ts` nuốt luôn nó và `tsc --noEmit`
+  // của web báo cả đống lỗi không liên quan.
+  "exclude": ["node_modules", "mobile"]
 }

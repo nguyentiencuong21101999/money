@@ -13,11 +13,14 @@ import { useAuth } from "@/lib/auth";
 import {
   enterRoom,
   QUALITY,
+  requestAudio,
+  requestCamera,
   requestFacing,
   requestQuality,
   shareCamera,
   viewRoom,
   watchRoomCount,
+  type CameraInfo,
   type Presence,
   type Quality,
   type ShareSession,
@@ -42,6 +45,10 @@ interface CallState {
   count: number;
   /** Chất lượng người xem đang yêu cầu (để tô nút). */
   quality: Quality;
+  /** Danh sách camera bên chia sẻ công bố (để người xem chọn ống kính). */
+  cameras?: CameraInfo[];
+  /** deviceId camera đang chọn (để tô nút). */
+  cameraId?: string;
 }
 
 interface CallContext {
@@ -54,6 +61,10 @@ interface CallContext {
   switchCamera: () => void;
   /** Người xem yêu cầu bên chia sẻ đổi chất lượng. */
   switchQuality: (quality: Quality) => void;
+  /** Người xem bật/tắt MIC của bên chia sẻ (mặc định tắt). */
+  setListen: (on: boolean) => void;
+  /** Người xem chọn ống kính (theo deviceId trong call.cameras). */
+  setCamera: (deviceId: string) => void;
   hangUp: () => void;
 }
 
@@ -165,6 +176,19 @@ export function CallProvider({ children }: { children: ReactNode }) {
     void requestQuality(cid, quality);
   }, []);
 
+  const setListen = useCallback((on: boolean) => {
+    const cid = viewCallIdRef.current;
+    if (!cid) return;
+    void requestAudio(cid, on);
+  }, []);
+
+  const setCamera = useCallback((deviceId: string) => {
+    const cid = viewCallIdRef.current;
+    if (!cid) return;
+    setCall((c) => (c ? { ...c, cameraId: deviceId } : c));
+    void requestCamera(cid, deviceId);
+  }, []);
+
   const share = useCallback(
     async (callId: string, quality: Quality = "720p") => {
       if (!user?.email) throw new Error("Cần đăng nhập.");
@@ -221,6 +245,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         onState: (connState) => setCall((c) => (c ? { ...c, connState } : c)),
         onRemoteStream: (remoteStream) =>
           setCall((c) => (c ? { ...c, remoteStream } : c)),
+        onCameras: (cameras) => setCall((c) => (c ? { ...c, cameras } : c)),
       });
       handleRef.current = handle;
       viewCallIdRef.current = callId;
@@ -248,7 +273,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ call, share, view, switchCamera, switchQuality, hangUp }}
+      value={{ call, share, view, switchCamera, switchQuality, setListen, setCamera, hangUp }}
     >
       {children}
       <FloatingCall
@@ -256,6 +281,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
         onHangUp={hangUp}
         onSwitchCamera={switchCamera}
         onSwitchQuality={switchQuality}
+        onSetListen={setListen}
+        onSetCamera={setCamera}
       />
     </Ctx.Provider>
   );
@@ -284,11 +311,15 @@ function FloatingCall({
   onHangUp,
   onSwitchCamera,
   onSwitchQuality,
+  onSetListen,
+  onSetCamera,
 }: {
   call: CallState | null;
   onHangUp: () => void;
   onSwitchCamera: () => void;
   onSwitchQuality: (quality: Quality) => void;
+  onSetListen: (on: boolean) => void;
+  onSetCamera: (deviceId: string) => void;
 }) {
   if (!call) return null;
   if (call.role === "sharer") {
@@ -300,6 +331,8 @@ function FloatingCall({
       onHangUp={onHangUp}
       onSwitchCamera={onSwitchCamera}
       onSwitchQuality={onSwitchQuality}
+      onSetListen={onSetListen}
+      onSetCamera={onSetCamera}
     />
   );
 }
@@ -337,7 +370,7 @@ function SharerWidget({
 
   const waiting = !stream;
   return (
-    <div className="hidden fixed right-3 bottom-3 z-50 w-44 overflow-hidden rounded-2xl bg-black/85 shadow-lg">
+    <div className="fixed right-3 bottom-3 z-50 w-44 overflow-hidden rounded-2xl bg-black/85 shadow-lg">
       <div className="relative aspect-3/4 w-full bg-black">
         <video
           ref={videoRef}
@@ -383,11 +416,15 @@ function ViewerWidget({
   onHangUp,
   onSwitchCamera,
   onSwitchQuality,
+  onSetListen,
+  onSetCamera,
 }: {
   call: CallState;
   onHangUp: () => void;
   onSwitchCamera: () => void;
   onSwitchQuality: (quality: Quality) => void;
+  onSetListen: (on: boolean) => void;
+  onSetCamera: (deviceId: string) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   // Bắt đầu tắt tiếng để iOS chịu tự phát; chạm để bật.
@@ -405,6 +442,8 @@ function ViewerWidget({
       el.muted = !next;
       void el.play().catch(() => {});
     }
+    // Bật tiếng = xin bên chia sẻ MỞ MIC (họ mới thu âm); tắt = bảo họ gỡ mic.
+    onSetListen(next);
   }
 
   useEffect(() => {
@@ -521,6 +560,28 @@ function ViewerWidget({
               >
                 −
               </button>
+            </div>
+          )}
+          {/* Chọn ống kính = ZOOM QUANG thật (đổi hẳn camera bên chia sẻ). */}
+          {call.remoteStream && call.cameras && call.cameras.length > 1 && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute bottom-14 left-1/2 flex -translate-x-1/2 gap-1"
+            >
+              {call.cameras.map((cam) => (
+                <button
+                  key={cam.deviceId}
+                  type="button"
+                  onClick={() => onSetCamera(cam.deviceId)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                    call.cameraId === cam.deviceId
+                      ? "bg-white text-black"
+                      : "bg-black/60 text-white"
+                  }`}
+                >
+                  {cam.zoom}
+                </button>
+              ))}
             </div>
           )}
         </div>

@@ -110,6 +110,97 @@ export async function requestQuality(
   }).catch(() => {});
 }
 
+/**
+ * Người xem bật/tắt MIC của bên chia sẻ.
+ *
+ * Mic bên chia sẻ mặc định TẮT (không thu âm, không active) — chỉ khi người xem
+ * gọi hàm này với on=true thì bên chia sẻ mới mở mic và đàm phán lại để đẩy tiếng
+ * sang. on=false thì gỡ hẳn track mic (không phải chỉ mute), nên bên chia sẻ
+ * không còn active mic.
+ */
+export async function requestAudio(callId: string, on: boolean): Promise<void> {
+  await updateDoc(doc(getDb(), "calls", callId), {
+    wantAudio: { at: Date.now(), on },
+  }).catch(() => {});
+}
+
+/**
+ * Chọn ĐÚNG camera theo mặt, trả deviceId.
+ *
+ * Vì sao không tin `facingMode`: react-native-webrtc liệt kê MỌI ống kính sau
+ * (wide/ultrawide/tele/dual/triple) đều mang facing "environment", và khi chỉ
+ * đưa facingMode, lib lấy "cái đầu tiên khớp mặt" — thứ tự này KHÁC nhau giữa
+ * các đời iPhone, nên iPhone 15 và 16 vớ phải ống kính khác nhau. Chọn thẳng
+ * deviceId thì hai máy giống nhau.
+ *
+ * Trên web `facing` không có (trình duyệt không trả) → hàm trả undefined, nơi gọi
+ * tự quay về dùng facingMode như cũ. Nên web KHÔNG đổi hành vi.
+ */
+/** Một camera người xem có thể chọn. `zoom` là nhãn ngắn để vẽ nút (0.5x/1x/Tele/Trước). */
+export interface CameraInfo {
+  deviceId: string;
+  label: string;
+  zoom: string;
+  facing: "user" | "environment";
+}
+
+/**
+ * Liệt kê camera VẬT LÝ để người xem chọn ống kính (= zoom quang thật). Bỏ các
+ * "camera ảo" gộp nhiều ống kính (Dual/Triple) cho danh sách gọn: chỉ còn cam
+ * trước + tối đa 3 ống kính sau (siêu rộng / rộng / tele).
+ */
+export async function listCameras(): Promise<CameraInfo[]> {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const out: CameraInfo[] = [];
+    for (const d of devices) {
+      if (d.kind !== "videoinput") continue;
+      const label = d.label || "";
+      if (/dual|triple/i.test(label)) continue; // camera ảo gộp ống kính
+      const facing: "user" | "environment" =
+        (d as { facing?: string }).facing === "front" || /front/i.test(label)
+          ? "user"
+          : "environment";
+      let zoom: string;
+      if (facing === "user") zoom = "Trước";
+      else if (/ultra/i.test(label)) zoom = "0.5x";
+      else if (/tele/i.test(label)) zoom = "Tele";
+      else zoom = "1x";
+      out.push({ deviceId: d.deviceId, label, zoom, facing });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+/** Người xem chọn thẳng một camera (theo deviceId đã công bố ở call doc). */
+export async function requestCamera(callId: string, deviceId: string): Promise<void> {
+  await updateDoc(doc(getDb(), "calls", callId), {
+    wantCamera: { at: Date.now(), deviceId },
+  }).catch(() => {});
+}
+
+export async function pickCameraId(
+  facing: "user" | "environment",
+): Promise<string | undefined> {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams = devices.filter((d) => d.kind === "videoinput");
+    const want = facing === "user" ? "front" : "environment";
+    const byFacing = cams.filter(
+      (d) => (d as { facing?: string }).facing === want,
+    );
+    if (!byFacing.length) return undefined; // web / không có thông tin mặt
+    if (facing === "user") return byFacing[0].deviceId;
+    // Mặt sau nhiều ống kính → lấy "Back Camera" (wide chính), tránh ultrawide/tele.
+    const main = byFacing.find((d) => /back camera$/i.test(d.label));
+    return (main ?? byFacing[0]).deviceId;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Hai email tạo nên room, suy ngược từ id. */
 function emailsOf(callId: string): string[] {
   return callId.split("__");
@@ -164,9 +255,17 @@ export async function shareCamera(params: {
   // Mặt cam + chất lượng hiện tại, để đổi cam/đổi chất lượng lấy lại đúng stream.
   let curFacing: "user" | "environment" = "user";
   let curQuality: Quality = params.quality ?? "720p";
+  // Camera người xem chọn thẳng (đè lên curFacing). undefined = theo mặt cam.
+  let curDeviceId: string | undefined;
 
   // Ghi emails + đánh dấu đang chia sẻ (merge, không xoá wantOffer bên xem đã đặt).
   await setDoc(callRef, { emails, sharerEmail: me, status: "sharing" }, { merge: true });
+
+  // Công bố danh sách camera để người xem chọn ống kính (zoom quang). Không chặn
+  // luồng chính; lỗi thì thôi, người xem vẫn có nút đổi trước/sau mặc định.
+  void listCameras().then((cams) => {
+    if (cams.length) void updateDoc(callRef, { cameras: cams }).catch(() => {});
+  });
 
   let pc: RTCPeerConnection | null = null;
   let offerId = "";
@@ -181,6 +280,9 @@ export async function shareCamera(params: {
       offerId = id;
       pc = new RTCPeerConnection(ICE_CONFIG);
       pc.onconnectionstatechange = () => params.onState(pc!.connectionState);
+      // Trước khi bốc track vào offer, chỉnh stream cho khớp yêu cầu mic hiện tại
+      // (thêm track mic nếu người xem đang bật, gỡ nếu tắt).
+      await ensureAudioTrack();
       params.stream.getTracks().forEach((t) => pc!.addTrack(t, params.stream));
       pc.onicecandidate = (e) => {
         if (e.candidate) {
@@ -231,9 +333,13 @@ export async function shareCamera(params: {
         params.stream.removeTrack(old);
         old.stop();
       }
+      // Ưu tiên camera người xem chọn thẳng; không thì chọn theo mặt cam.
+      const camId = curDeviceId ?? (await pickCameraId(curFacing));
       const ns = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: curFacing,
+          // deviceId chọn đúng ống kính (xem pickCameraId); web không có deviceId
+          // thì quay về facingMode.
+          ...(camId ? { deviceId: camId } : { facingMode: curFacing }),
           width: { ideal: q.width },
           height: { ideal: q.height },
         },
@@ -251,8 +357,32 @@ export async function shareCamera(params: {
     }
   }
 
+  // Mic: mặc định TẮT. Người xem bật/tắt qua wantAudio; ensureAudioTrack() làm
+  // cho stream khớp curAudio (thêm/gỡ hẳn track mic, không phải chỉ mute).
+  let curAudio = false;
+  async function ensureAudioTrack() {
+    const has = params.stream.getAudioTracks().length > 0;
+    if (curAudio && !has) {
+      try {
+        const as = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const at = as.getAudioTracks()[0];
+        if (at) params.stream.addTrack(at);
+      } catch (err) {
+        console.error("[call] mở mic lỗi", err);
+      }
+    } else if (!curAudio && has) {
+      const at = params.stream.getAudioTracks()[0];
+      if (at) {
+        params.stream.removeTrack(at);
+        at.stop();
+      }
+    }
+  }
+
   let lastFacingAt = 0;
   let lastQualityAt = 0;
+  let lastAudioAt = 0;
+  let lastCameraAt = 0;
 
   let lastWant: unknown = null;
   const unsubDoc = onSnapshot(
@@ -270,6 +400,14 @@ export async function shareCamera(params: {
       ) {
         lastFacingAt = wf.at;
         curFacing = wf.facing === "environment" ? "environment" : "user";
+        curDeviceId = undefined; // đổi mặt cam thì bỏ lựa chọn ống kính cũ
+        void reacquireVideo();
+      }
+      // Người xem chọn thẳng một ống kính (siêu rộng / rộng / tele / trước).
+      const wc = d.wantCamera;
+      if (wc && typeof wc.at === "number" && wc.at > lastCameraAt && wc.deviceId) {
+        lastCameraAt = wc.at;
+        curDeviceId = wc.deviceId as string;
         void reacquireVideo();
       }
       // Người xem yêu cầu đổi chất lượng (còn tươi).
@@ -285,15 +423,40 @@ export async function shareCamera(params: {
         curQuality = wq.quality as Quality;
         void reacquireVideo();
       }
+      // Người xem bật/tắt mic của bên chia sẻ. Đổi thì đàm phán lại để thêm/gỡ
+      // track mic (makeOffer gọi ensureAudioTrack trước khi tạo offer).
+      const wa = d.wantAudio;
+      if (wa && typeof wa.at === "number" && wa.at > lastAudioAt) {
+        lastAudioAt = wa.at;
+        const on = !!wa.on;
+        if (on !== curAudio) {
+          curAudio = on;
+          void makeOffer();
+        }
+      }
       // Bên xem xin offer (vào / vào lại) → tạo offer mới.
       if (d.wantOffer && d.wantOffer !== lastWant) {
         lastWant = d.wantOffer;
         void makeOffer();
         return;
       }
-      // Answer cho offer hiện tại.
+      // Answer cho offer hiện tại. Chỉ nhận khi đang CHỜ answer
+      // (signalingState === "have-local-offer"): đã tạo offer, đặt localDescription,
+      // chưa có remote. Áp xong thì state chuyển "stable" nên snapshot lặp lại sẽ
+      // bị bỏ qua.
+      //
+      // TRƯỚC đây guard bằng `!pc.currentRemoteDescription`, chạy đúng trên web
+      // nhưng react-native-webrtc trả `currentRemoteDescription` = null kể cả sau
+      // khi đã set → guard luôn đúng → áp lại answer mỗi lần snapshot bắn → lỗi
+      // "Called in wrong state: stable" lặp vô hạn. Dùng signalingState đúng cho
+      // cả hai nền tảng.
       const ans = d.answer;
-      if (ans && ans.offerId === offerId && pc && !pc.currentRemoteDescription) {
+      if (
+        ans &&
+        ans.offerId === offerId &&
+        pc &&
+        pc.signalingState === "have-local-offer"
+      ) {
         void pc
           .setRemoteDescription(
             new RTCSessionDescription({ type: ans.type, sdp: ans.sdp }),
@@ -333,6 +496,8 @@ export async function viewRoom(params: {
   myEmail: string;
   onState: (state: RTCPeerConnectionState | null) => void;
   onRemoteStream: (stream: MediaStream | null) => void;
+  /** Danh sách camera bên chia sẻ công bố, để người xem chọn ống kính. */
+  onCameras?: (cams: CameraInfo[]) => void;
 }): Promise<ViewSession> {
   const db = getDb();
   const callRef = doc(db, "calls", params.callId);
@@ -349,10 +514,20 @@ export async function viewRoom(params: {
   let pc: RTCPeerConnection | null = null;
   let handledOffer = "";
   let unsubCands: Unsubscribe | null = null;
+  let lastCamerasJson = "";
 
   const unsubDoc = onSnapshot(
     callRef,
     (s) => {
+      // Danh sách camera bên chia sẻ công bố (để người xem chọn ống kính).
+      const cams = s.data()?.cameras;
+      if (params.onCameras && Array.isArray(cams)) {
+        const json = JSON.stringify(cams);
+        if (json !== lastCamerasJson) {
+          lastCamerasJson = json;
+          params.onCameras(cams as CameraInfo[]);
+        }
+      }
       const offer = s.data()?.offer;
       // Bên chia sẻ đã dừng (offer bị xoá) → xoá hình, quay về trạng thái chờ
       // thay vì đứng khung cũ.
