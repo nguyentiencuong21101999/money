@@ -92,6 +92,9 @@ final class PipLogoContent: PipContent {
   // mỗi frame chỉ bọc thêm CMSampleBuffer mới cho đúng timestamp.
   private var pixelBuffer: CVPixelBuffer?
   private var formatDesc: CMVideoFormatDescription?
+  /// Phiên bản ảnh đã vẽ; khác PipArtwork.version nghĩa là JS vừa đổi ảnh (vuốt
+  /// sang tấm khác) → phải vẽ lại, không dùng khung cache cũ.
+  private var lastArtworkVersion = -1
 
   private weak var layer: AVSampleBufferDisplayLayer?
   private var timer: Timer?
@@ -155,7 +158,11 @@ final class PipLogoContent: PipContent {
   private func makeFrame() -> CMSampleBuffer? {
     let pb: CVPixelBuffer
     let fd: CMVideoFormatDescription
-    if let cachedPB = pixelBuffer, let cachedFD = formatDesc {
+    // Dùng lại khung cache CHỈ khi ảnh chưa đổi. JS đổi ảnh (setImage) thì
+    // PipArtwork.version tăng → vẽ lại tấm mới.
+    if let cachedPB = pixelBuffer, let cachedFD = formatDesc,
+      lastArtworkVersion == PipArtwork.version
+    {
       pb = cachedPB
       fd = cachedFD
     } else {
@@ -166,6 +173,7 @@ final class PipLogoContent: PipContent {
       guard let newFD = desc else { return nil }
       pixelBuffer = newPB
       formatDesc = newFD
+      lastArtworkVersion = PipArtwork.version
       pb = newPB
       fd = newFD
     }
