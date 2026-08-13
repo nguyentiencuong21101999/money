@@ -103,10 +103,7 @@ export function useShare(myEmail: string) {
       });
       captureRef.current = { handle, stream };
       setState((s) => ({ ...s, localStream: stream, error: null }));
-
-      // Camera đã bật → có track id → dựng PiP giữ-nền HIỆN camera thật vào ô PiP.
-      const vtrack = stream.getVideoTracks()[0];
-      startKeepAlivePip(vtrack?.id ?? "");
+      // PiP giữ-nền đã bật từ lúc start() (không phụ thuộc camera) — xem start().
     } catch (e) {
       setState((s) => ({
         ...s,
@@ -122,8 +119,8 @@ export function useShare(myEmail: string) {
     captureRef.current.handle.stop();
     captureRef.current.stream.getTracks().forEach((t) => t.stop());
     captureRef.current = null;
-    // Camera tắt thì ô PiP giữ-nền (lấy camera làm nhịp khung hình) cũng dừng.
-    stopKeepAlivePip();
+    // KHÔNG tắt PiP ở đây: người xem rời (còn một mình) thì vẫn phải GIỮ app sống
+    // dưới nền để bắt được lúc họ vào lại. PiP chỉ tắt khi tắt hẳn LIVE (stop()).
     setState((s) => ({ ...s, localStream: null, connState: null }));
   }, []);
 
@@ -155,9 +152,15 @@ export function useShare(myEmail: string) {
 
       void other;
 
-      // Giống flow web (CallProvider): camera CHỈ bật khi có người xem trong room
-      // (>= 2 người). Một mình thì vẫn ở trong room nhưng TẮT cam — không bao giờ
-      // có luồng camera chạy mà không ai xem. Người xem rời (count về 1) thì tắt cam.
+      // BẬT PiP GIỮ-NỀN NGAY khi bật LIVE (không đợi camera). PiP dùng nội dung ảnh
+      // chạy bằng timer nên KHÔNG cần camera — nhờ vậy dù đang MỘT MÌNH và đã thoát
+      // app xuống nền, app vẫn sống để bắt được lúc người xem vào rồi mới bật camera.
+      // Truyền "" = không có track camera → ô PiP hiện ảnh feed (PipLogoContent).
+      startKeepAlivePip("");
+
+      // Camera CHỈ bật khi có người xem (>= 2 người) — không bao giờ có luồng camera
+      // chạy mà không ai xem. Người xem rời (count về 1) thì tắt cam, nhưng PiP vẫn
+      // giữ để app sống dưới nền chờ họ vào lại.
       presenceRef.current = enterRoom(callId, email);
       countUnsubRef.current = watchRoomCount(callId, (count) => {
         setState((s) => ({ ...s, count }));
