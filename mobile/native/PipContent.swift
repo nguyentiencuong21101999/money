@@ -207,6 +207,9 @@ final class PipLogoContent: PipContent {
     let w = frameWidth, h = frameHeight
     var pixelBuffer: CVPixelBuffer?
     let attrs: [String: Any] = [
+      // IOSurface: BẮT BUỘC. PiP chạy ở tiến trình riêng, chỉ hiển thị được buffer
+      // chia sẻ qua IOSurface. Thiếu dòng này → ô PiP ĐEN dù layer vẫn nhận frame.
+      kCVPixelBufferIOSurfacePropertiesKey as String: [:] as CFDictionary,
       kCVPixelBufferCGImageCompatibilityKey as String: true,
       kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
     ]
