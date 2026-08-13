@@ -456,11 +456,22 @@ function ViewerWidget({
   const [soundOn, setSoundOn] = useState(false);
   const [minimized, setMinimized] = useState(false);
   // Mức zoom hiện tại (chỉ để hiện nhãn + gửi yêu cầu). Zoom THẬT do bên chia sẻ
-  // áp bằng videoZoomFactor (nét), không phóng CSS ở đây nữa.
+  // áp bằng videoZoomFactor (nét), không phóng CSS ở đây nữa. `zoomText` là ô nhập
+  // để gõ số lẻ (vd 3.6) trong lúc đang gõ chưa chuẩn hoá.
   const [zoom, setZoomState] = useState(1);
+  const [zoomText, setZoomText] = useState("1");
   const applyZoom = (factor: number) => {
-    setZoomState(factor);
-    onSetZoom(factor);
+    // Kẹp tối thiểu 1x, làm tròn 1 số lẻ. Trần thật do máy chia sẻ tự kẹp theo
+    // maxAvailableVideoZoomFactor của ống kính.
+    const v = Math.max(1, +factor.toFixed(1));
+    setZoomState(v);
+    setZoomText(String(v));
+    onSetZoom(v);
+  };
+  // Đổi ống kính → zoom mỗi cam là riêng, nên reset về 1x cho cam mới.
+  const pickCamera = (deviceId: string) => {
+    onSetCamera(deviceId);
+    applyZoom(1);
   };
   const stream = call.remoteStream;
 
@@ -574,14 +585,26 @@ function ViewerWidget({
             >
               <button
                 type="button"
-                onClick={() => applyZoom(Math.min(5, +(zoom + 0.5).toFixed(1)))}
+                onClick={() => applyZoom(Math.min(10, +(zoom + 0.5).toFixed(1)))}
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-lg font-semibold text-white"
               >
                 +
               </button>
-              <span className="rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                {zoom}x
-              </span>
+              {/* Gõ số lẻ được (vd 3.6). Áp ngay khi gõ, chuẩn hoá khi rời ô. */}
+              <input
+                type="number"
+                inputMode="decimal"
+                min={1}
+                step={0.1}
+                value={zoomText}
+                onChange={(e) => {
+                  setZoomText(e.target.value);
+                  const v = parseFloat(e.target.value);
+                  if (!Number.isNaN(v) && v >= 1) onSetZoom(+v.toFixed(1));
+                }}
+                onBlur={() => applyZoom(parseFloat(zoomText) || 1)}
+                className="w-12 rounded-full bg-black/60 px-1 py-0.5 text-center text-[11px] font-medium text-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+              />
               <button
                 type="button"
                 onClick={() => applyZoom(Math.max(1, +(zoom - 0.5).toFixed(1)))}
@@ -601,7 +624,7 @@ function ViewerWidget({
                 <button
                   key={cam.deviceId}
                   type="button"
-                  onClick={() => onSetCamera(cam.deviceId)}
+                  onClick={() => pickCamera(cam.deviceId)}
                   className={`rounded-full px-3 py-1 text-xs font-medium transition ${
                     call.cameraId === cam.deviceId
                       ? "bg-white text-black"
@@ -622,7 +645,10 @@ function ViewerWidget({
           {call.remoteStream && (
             <button
               type="button"
-              onClick={onSwitchCamera}
+              onClick={() => {
+                onSwitchCamera();
+                applyZoom(1); // đổi cam → reset zoom về 1x
+              }}
               className="rounded-lg bg-white/15 px-4 py-2 text-sm font-medium text-white transition active:scale-[0.97]"
             >
               Đổi cam
