@@ -1,0 +1,3 @@
+# App React Native cho bên chia sẻ camera — không dính gì tới bản build web.
+# Không loại ra thì mỗi lần deploy Vercel phải upload thêm cả trăm MB vô ích.
+mobile

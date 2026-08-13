@@ -42,15 +42,17 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# App React Native để RIÊNG khỏi repo web (quản lý bằng repo/nơi khác). Repo này
-# chỉ là bản web (deploy Vercel). Mobile vẫn nằm cùng thư mục trên đĩa vì nó đọc
-# code dùng chung `../src/lib/call.ts` qua metro — chỉ là không track ở git web.
-/mobile/
-
-# File phụ, không thuộc bản web
-/logos.png
-/docs/
-/.vercelignore
+# App React Native (mobile/): commit SOURCE, bỏ phần build/generated + secret.
+mobile/node_modules
+mobile/.expo
+# ios/ và android/ do `expo prebuild` sinh ra từ app.json — dựng lại được bất cứ
+# lúc nào, commit vào chỉ tổ xung đột (và nặng). Sửa tay trong ios/ thì dùng
+# config plugin thay vì bỏ dòng này.
+mobile/ios
+mobile/android
+# Secret của app iOS — không commit (giống chính sách .env*).
+mobile/GoogleService-Info.plist
+mobile/.env
 
 # Khoá Firebase của app iOS — không commit (giống chính sách .env*).
 GoogleService-Info.plist
