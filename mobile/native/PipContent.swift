@@ -82,11 +82,10 @@ protocol PipContent: AnyObject {
 /// Vẽ logo app (trái tim trắng trên gradient hồng → magenta, như assets/icon.png)
 /// và bơm lại đúng khung hình đó ~15fps.
 final class PipLogoContent: PipContent {
-  // Tỉ lệ DỌC 9:16 → iOS vẽ ô PiP hẹp (như video call Facebook), thay vì ô vuông
-  // bè. iPhone vẫn có cỡ tối thiểu nên không tí hon được, nhưng hẹp hơn nhiều.
-  // Kích thước lớn hơn ô PiP thật để trái tim không bị rỗ khi iOS scale lên.
-  private static let frameWidth = 270
-  private static let frameHeight = 480
+  // Tỉ lệ NGANG 16:9 → ô PiP nằm ngang (giống lúc dùng camera trước đây). Kích
+  // thước lớn hơn ô PiP thật để ảnh không bị rỗ khi iOS scale lên.
+  private static let frameWidth = 480
+  private static let frameHeight = 270
 
   // Nội dung mỗi khung hình y hệt nhau nên vẽ một lần rồi dùng lại pixel buffer;
   // mỗi frame chỉ bọc thêm CMSampleBuffer mới cho đúng timestamp.
