@@ -80,8 +80,16 @@ function ShareMode({ callId }: { callId: string }) {
             Đang chia sẻ camera với {call.peerName}
           </p>
           <p className="text-muted mt-1 text-sm">
-            Khung nổi góc màn hình luôn hiện để bạn biết camera đang được chia
-            sẻ. Bấm Dừng ở đó bất cứ lúc nào.
+            Khung nổi góc màn hình hiện suốt lúc bạn còn ở trong trình duyệt —
+            bấm Dừng ở đó bất cứ lúc nào.
+          </p>
+          {/* Nói thẳng giới hạn thay vì để người dùng tự đoán vì sao hình đứng.
+              iOS ngắt camera ngay khi rời trình duyệt hoặc khoá màn hình, và
+              không có cách nào lách trên web — xem docs/signaling.md. */}
+          <p className="text-muted mt-3 text-sm">
+            Lưu ý: chuyển sang app khác hoặc khoá màn hình thì máy sẽ tạm ngắt
+            camera, người xem thấy hình dừng lại. Quay lại trang này là chạy
+            tiếp.
           </p>
           <Link
             href="/"
@@ -105,7 +113,8 @@ function ShareMode({ callId }: { callId: string }) {
           <p className="text-lg font-semibold">Chia sẻ camera với {other}?</p>
           <p className="text-muted mt-1.5 text-sm">
             Đồng ý thì camera của bạn sẽ được chia sẻ cho họ xem. Bạn luôn thấy
-            dấu &quot;đang chia sẻ&quot; và dừng lại được bất cứ lúc nào.
+            dấu &quot;đang chia sẻ&quot; và dừng lại được bất cứ lúc nào. Camera
+            chỉ bật khi họ thật sự đang trong room.
           </p>
         </div>
 

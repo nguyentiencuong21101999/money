@@ -41,3 +41,19 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# app React Native (mobile/) — dòng /node_modules ở trên có dấu "/" đầu nên chỉ
+# chặn ở gốc, phải kể tên riêng ở đây.
+mobile/node_modules
+mobile/.expo
+# ios/ và android/ do `expo prebuild` sinh ra từ app.json — dựng lại được bất cứ
+# lúc nào, commit vào chỉ tổ xung đột. Nếu về sau phải sửa tay trong ios/ (vd
+# AppDelegate) thì chuyển sang dùng config plugin thay vì bỏ dòng này.
+mobile/ios
+mobile/android
+# GoogleService-Info.plist chứa khoá Firebase của app iOS — cùng chính sách với
+# .env* ở trên, không commit.
+mobile/GoogleService-Info.plist
+
+# Khoá Firebase của app iOS — không commit (giống chính sách .env*).
+GoogleService-Info.plist
