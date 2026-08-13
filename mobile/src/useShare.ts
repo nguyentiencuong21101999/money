@@ -16,7 +16,12 @@ import {
   onSystemEndCall,
   startKeepAliveCall,
 } from "./callkeep";
-import { setCameraZoom, startKeepAlivePip, stopKeepAlivePip } from "./keepalive-pip";
+import {
+  setCameraFocus,
+  setCameraZoom,
+  startKeepAlivePip,
+  stopKeepAlivePip,
+} from "./keepalive-pip";
 
 /**
  * Cài RTCPeerConnection / RTCIceCandidate / RTCSessionDescription /
@@ -93,6 +98,8 @@ export function useShare(myEmail: string) {
         onState: (connState) => setState((s) => ({ ...s, connState })),
         // Người xem chỉnh zoom → áp thẳng videoZoomFactor lên camera đang quay.
         onZoom: (deviceId, factor) => setCameraZoom(deviceId, factor),
+        // Người xem khoá/mở nét ở tâm.
+        onFocus: (deviceId, locked) => setCameraFocus(deviceId, locked),
       });
       captureRef.current = { handle, stream };
       setState((s) => ({ ...s, localStream: stream, error: null }));

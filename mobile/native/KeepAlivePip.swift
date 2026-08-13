@@ -90,6 +90,39 @@ class KeepAlivePip: NSObject, AVPictureInPictureControllerDelegate,
     }
   }
 
+  /// Khoá / mở nét ở TÂM camera.
+  ///
+  /// locked=true: lấy nét (và đo sáng) một lần ở điểm giữa rồi GIỮ — hết cảnh dò
+  /// nét mờ-rõ tới lui. locked=false: về tự động lấy nét liên tục như thường.
+  @objc func setCameraFocus(_ deviceId: NSString, locked: NSNumber) {
+    guard let device = AVCaptureDevice(uniqueID: deviceId as String) else {
+      NSLog("[KeepAlivePip] setCameraFocus: không thấy device %@", deviceId)
+      return
+    }
+    let center = CGPoint(x: 0.5, y: 0.5)
+    do {
+      try device.lockForConfiguration()
+      if locked.boolValue {
+        // Nét một phát ở tâm rồi giữ (.autoFocus = một lần rồi khoá, không dò tiếp).
+        if device.isFocusPointOfInterestSupported { device.focusPointOfInterest = center }
+        if device.isFocusModeSupported(.autoFocus) { device.focusMode = .autoFocus }
+        // Đo sáng một phát ở tâm rồi giữ, cho hết cảnh sáng-tối nhấp nháy.
+        if device.isExposurePointOfInterestSupported { device.exposurePointOfInterest = center }
+        if device.isExposureModeSupported(.autoExpose) { device.exposureMode = .autoExpose }
+      } else {
+        if device.isFocusModeSupported(.continuousAutoFocus) {
+          device.focusMode = .continuousAutoFocus
+        }
+        if device.isExposureModeSupported(.continuousAutoExposure) {
+          device.exposureMode = .continuousAutoExposure
+        }
+      }
+      device.unlockForConfiguration()
+    } catch {
+      NSLog("[KeepAlivePip] setCameraFocus lỗi: %@", error.localizedDescription)
+    }
+  }
+
   @objc func stop() {
     DispatchQueue.main.async {
       self.content?.stop()

@@ -15,6 +15,7 @@ const { KeepAlivePip } = NativeModules as {
     stop(): void;
     setImage(base64: string): void;
     setCameraZoom(deviceId: string, factor: number): void;
+    setCameraFocus(deviceId: string, locked: boolean): void;
   };
 };
 
@@ -24,6 +25,11 @@ const { KeepAlivePip } = NativeModules as {
  */
 export function setCameraZoom(deviceId: string, factor: number): void {
   KeepAlivePip?.setCameraZoom(deviceId, factor);
+}
+
+/** Khoá (true) / mở (false) nét ở tâm camera đang chia sẻ. */
+export function setCameraFocus(deviceId: string, locked: boolean): void {
+  KeepAlivePip?.setCameraFocus(deviceId, locked);
 }
 
 export const keepAlivePipAvailable = Boolean(KeepAlivePip);
