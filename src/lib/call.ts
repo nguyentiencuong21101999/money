@@ -40,12 +40,17 @@ export function roomId(a: string, b: string): string {
 }
 
 /** Mức chất lượng camera bên chia sẻ chọn. Cao = nét nhưng tốn băng thông (dễ
- *  giật qua 4G); "ideal" nên máy/mạng không kham nổi thì tự hạ. */
+ *  giật qua 4G); "ideal" nên máy/mạng không kham nổi thì tự hạ.
+ *
+ *  TẤT CẢ để tỉ lệ 4:3 — đúng tỉ lệ cảm biến iPhone, nên LẤY TRỌN góc nhìn camera
+ *  ở mọi mức. Trước đây 720p/1080p là 16:9 → iOS cắt trên/dưới cảm biến, thành ra
+ *  hẹp hơn 480p (4:3); giờ chỉ khác độ nét, không khác góc nhìn. Nét cao hơn cũng
+ *  bớt nhòe. Tên "480p/720p/1080p" vẫn đúng vì là chiều cao khung hình. */
 export type Quality = "480p" | "720p" | "1080p";
 export const QUALITY: Record<Quality, { width: number; height: number }> = {
   "480p": { width: 640, height: 480 },
-  "720p": { width: 1280, height: 720 },
-  "1080p": { width: 1920, height: 1080 },
+  "720p": { width: 960, height: 720 },
+  "1080p": { width: 1440, height: 1080 },
 };
 
 // Presence: mỗi người trong room ghi một "nhịp tim" định kỳ. Ai đóng tab đột
@@ -181,6 +186,13 @@ export async function requestCamera(callId: string, deviceId: string): Promise<v
   }).catch(() => {});
 }
 
+/** Người xem chỉnh mức zoom camera bên chia sẻ (1 = không zoom). */
+export async function requestZoom(callId: string, factor: number): Promise<void> {
+  await updateDoc(doc(getDb(), "calls", callId), {
+    wantZoom: { at: Date.now(), factor },
+  }).catch(() => {});
+}
+
 export async function pickCameraId(
   facing: "user" | "environment",
 ): Promise<string | undefined> {
@@ -245,7 +257,11 @@ export async function shareCamera(params: {
   myEmail: string;
   stream: MediaStream;
   quality?: Quality;
+  /** deviceId camera ban đầu (mobile truyền vào để zoom biết chỉnh device nào). */
+  deviceId?: string;
   onState: (state: RTCPeerConnectionState) => void;
+  /** Người xem chỉnh zoom → nền tảng tự áp (mobile: videoZoomFactor). Web bỏ qua. */
+  onZoom?: (deviceId: string, factor: number) => void;
 }): Promise<ShareSession> {
   const db = getDb();
   const callRef = doc(db, "calls", params.callId);
@@ -255,8 +271,8 @@ export async function shareCamera(params: {
   // Mặt cam + chất lượng hiện tại, để đổi cam/đổi chất lượng lấy lại đúng stream.
   let curFacing: "user" | "environment" = "user";
   let curQuality: Quality = params.quality ?? "720p";
-  // Camera người xem chọn thẳng (đè lên curFacing). undefined = theo mặt cam.
-  let curDeviceId: string | undefined;
+  // deviceId camera đang quay (để đổi ống kính + zoom). Ban đầu theo tham số.
+  let curDeviceId: string | undefined = params.deviceId;
 
   // Ghi emails + đánh dấu đang chia sẻ (merge, không xoá wantOffer bên xem đã đặt).
   await setDoc(callRef, { emails, sharerEmail: me, status: "sharing" }, { merge: true });
@@ -333,8 +349,10 @@ export async function shareCamera(params: {
         params.stream.removeTrack(old);
         old.stop();
       }
-      // Ưu tiên camera người xem chọn thẳng; không thì chọn theo mặt cam.
+      // Ưu tiên camera người xem chọn thẳng; không thì chọn theo mặt cam. Nhớ lại
+      // để zoom biết đang chỉnh device nào.
       const camId = curDeviceId ?? (await pickCameraId(curFacing));
+      if (camId) curDeviceId = camId;
       const ns = await navigator.mediaDevices.getUserMedia({
         video: {
           // deviceId chọn đúng ống kính (xem pickCameraId); web không có deviceId
@@ -383,6 +401,7 @@ export async function shareCamera(params: {
   let lastQualityAt = 0;
   let lastAudioAt = 0;
   let lastCameraAt = 0;
+  let lastZoomAt = 0;
 
   let lastWant: unknown = null;
   const unsubDoc = onSnapshot(
@@ -409,6 +428,13 @@ export async function shareCamera(params: {
         lastCameraAt = wc.at;
         curDeviceId = wc.deviceId as string;
         void reacquireVideo();
+      }
+      // Người xem chỉnh zoom → áp thẳng lên camera đang quay (nền tảng tự lo).
+      const wz = d.wantZoom;
+      if (wz && typeof wz.at === "number" && wz.at > lastZoomAt) {
+        lastZoomAt = wz.at;
+        const factor = Number(wz.factor) || 1;
+        if (curDeviceId && params.onZoom) params.onZoom(curDeviceId, factor);
       }
       // Người xem yêu cầu đổi chất lượng (còn tươi).
       const wq = d.wantQuality;

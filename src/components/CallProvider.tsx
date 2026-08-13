@@ -17,6 +17,7 @@ import {
   requestCamera,
   requestFacing,
   requestQuality,
+  requestZoom,
   shareCamera,
   viewRoom,
   watchRoomCount,
@@ -65,6 +66,8 @@ interface CallContext {
   setListen: (on: boolean) => void;
   /** Người xem chọn ống kính (theo deviceId trong call.cameras). */
   setCamera: (deviceId: string) => void;
+  /** Người xem chỉnh zoom camera bên chia sẻ (1 = không zoom). */
+  setZoom: (factor: number) => void;
   hangUp: () => void;
 }
 
@@ -189,6 +192,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
     void requestCamera(cid, deviceId);
   }, []);
 
+  const setZoom = useCallback((factor: number) => {
+    const cid = viewCallIdRef.current;
+    if (!cid) return;
+    void requestZoom(cid, factor);
+  }, []);
+
   const share = useCallback(
     async (callId: string, quality: Quality = "720p") => {
       if (!user?.email) throw new Error("Cần đăng nhập.");
@@ -273,7 +282,17 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ call, share, view, switchCamera, switchQuality, setListen, setCamera, hangUp }}
+      value={{
+        call,
+        share,
+        view,
+        switchCamera,
+        switchQuality,
+        setListen,
+        setCamera,
+        setZoom,
+        hangUp,
+      }}
     >
       {children}
       <FloatingCall
@@ -283,6 +302,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         onSwitchQuality={switchQuality}
         onSetListen={setListen}
         onSetCamera={setCamera}
+        onSetZoom={setZoom}
       />
     </Ctx.Provider>
   );
@@ -313,6 +333,7 @@ function FloatingCall({
   onSwitchQuality,
   onSetListen,
   onSetCamera,
+  onSetZoom,
 }: {
   call: CallState | null;
   onHangUp: () => void;
@@ -320,6 +341,7 @@ function FloatingCall({
   onSwitchQuality: (quality: Quality) => void;
   onSetListen: (on: boolean) => void;
   onSetCamera: (deviceId: string) => void;
+  onSetZoom: (factor: number) => void;
 }) {
   if (!call) return null;
   if (call.role === "sharer") {
@@ -333,6 +355,7 @@ function FloatingCall({
       onSwitchQuality={onSwitchQuality}
       onSetListen={onSetListen}
       onSetCamera={onSetCamera}
+      onSetZoom={onSetZoom}
     />
   );
 }
@@ -418,6 +441,7 @@ function ViewerWidget({
   onSwitchQuality,
   onSetListen,
   onSetCamera,
+  onSetZoom,
 }: {
   call: CallState;
   onHangUp: () => void;
@@ -425,13 +449,19 @@ function ViewerWidget({
   onSwitchQuality: (quality: Quality) => void;
   onSetListen: (on: boolean) => void;
   onSetCamera: (deviceId: string) => void;
+  onSetZoom: (factor: number) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   // Bắt đầu tắt tiếng để iOS chịu tự phát; chạm để bật.
   const [soundOn, setSoundOn] = useState(false);
   const [minimized, setMinimized] = useState(false);
-  // Zoom SỐ (phóng hình nhận được bằng CSS) — iOS không cho zoom quang qua track.
-  const [zoom, setZoom] = useState(1);
+  // Mức zoom hiện tại (chỉ để hiện nhãn + gửi yêu cầu). Zoom THẬT do bên chia sẻ
+  // áp bằng videoZoomFactor (nét), không phóng CSS ở đây nữa.
+  const [zoom, setZoomState] = useState(1);
+  const applyZoom = (factor: number) => {
+    setZoomState(factor);
+    onSetZoom(factor);
+  };
   const stream = call.remoteStream;
 
   function toggleSound() {
@@ -476,8 +506,7 @@ function ViewerWidget({
       playsInline
       autoPlay
       muted={!soundOn}
-      style={{ transform: `scale(${zoom})`, transformOrigin: "center" }}
-      className="h-full w-full object-contain transition-transform"
+      className="h-full w-full object-contain"
     />
   );
   const liveBadge = (
@@ -537,7 +566,7 @@ function ViewerWidget({
               🔇 Chạm để bật tiếng
             </span>
           )}
-          {/* Zoom số: phóng to hình nhận được. */}
+          {/* Zoom THẬT: bên chia sẻ chỉnh videoZoomFactor (nét hơn phóng CSS). */}
           {call.remoteStream && (
             <div
               onClick={(e) => e.stopPropagation()}
@@ -545,7 +574,7 @@ function ViewerWidget({
             >
               <button
                 type="button"
-                onClick={() => setZoom((z) => Math.min(4, +(z + 0.5).toFixed(1)))}
+                onClick={() => applyZoom(Math.min(5, +(zoom + 0.5).toFixed(1)))}
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-lg font-semibold text-white"
               >
                 +
@@ -555,7 +584,7 @@ function ViewerWidget({
               </span>
               <button
                 type="button"
-                onClick={() => setZoom((z) => Math.max(1, +(z - 0.5).toFixed(1)))}
+                onClick={() => applyZoom(Math.max(1, +(zoom - 0.5).toFixed(1)))}
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-lg font-semibold text-white"
               >
                 −
