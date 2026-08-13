@@ -16,9 +16,7 @@ import {
 } from "react-native";
 import { setPipImage } from "../keepalive-pip";
 import {
-  authHeaders,
-  fetchPhotoBase64,
-  photoUrl,
+  fetchPhotoDataUri,
   usePhotos,
   webConfigured,
   type Photo,
@@ -56,16 +54,6 @@ export function HomeFeed({
   const { photos, loading, error } = usePhotos(uid);
   const [height, setHeight] = useState(0);
   const [active, setActive] = useState(0);
-  const [headers, setHeaders] = useState<Record<string, string> | null>(null);
-
-  // Token để <Image> tải được ảnh gốc (API của web đòi Authorization).
-  useEffect(() => {
-    let alive = true;
-    void authHeaders().then((h) => alive && setHeaders(h));
-    return () => {
-      alive = false;
-    };
-  }, [uid]);
 
   const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (height <= 0) return;
@@ -74,19 +62,8 @@ export function HomeFeed({
     if (clamped !== active) setActive(clamped);
   };
 
-  // Đẩy ảnh đang xem xuống native cho ô PiP. Tải bản gốc (nét) rồi mới gửi;
-  // native tự lo: chưa bật PiP thì ghi nhớ, đang bật thì đổi ảnh ngay.
-  useEffect(() => {
-    const photo = photos[active];
-    if (!photo) return;
-    let alive = true;
-    void fetchPhotoBase64(photo.driveFileId).then((b64) => {
-      if (alive && b64) setPipImage(b64);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [active, photos]);
+  // (PiP nhận ảnh từ chính PostView đang xem — xem PostView — nên KHÔNG fetch lại
+  // ở đây, tránh tải 2 lần cùng một ảnh.)
 
   return (
     <View style={styles.root} onLayout={onLayout(setHeight)}>
@@ -100,7 +77,12 @@ export function HomeFeed({
           decelerationRate="fast"
           onMomentumScrollEnd={onScrollEnd}
           renderItem={({ item, index }) => (
-            <PostView photo={item} index={index} height={height} headers={headers} />
+            <PostView
+              photo={item}
+              index={index}
+              height={height}
+              active={index === active}
+            />
           )}
           getItemLayout={(_, index) => ({ length: height, offset: height * index, index })}
         />
@@ -219,17 +201,37 @@ function PostView({
   photo,
   index,
   height,
-  headers,
+  active,
 }: {
   photo: Photo;
   index: number;
   height: number;
-  headers: Record<string, string> | null;
+  active: boolean;
 }) {
   const [tapped, setTapped] = useState(false);
-  // Ảnh gốc (nét) đã tải xong chưa. Chưa xong thì hiện thumb mờ + logo thở.
-  const [ready, setReady] = useState(false);
   const meta = FAKE[index % FAKE.length];
+  // Ảnh gốc (nét) tải bằng fetch → data URI (RN <Image headers> trên iOS gửi auth
+  // không đáng tin nên ảnh feed hay lỗi; fetch thì chắc chạy, giống PiP).
+  const [fullUri, setFullUri] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void fetchPhotoDataUri(photo.driveFileId).then((uri) => {
+      if (alive) setFullUri(uri);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [photo.driveFileId]);
+
+  // Ảnh này đang xem → đẩy xuống PiP, DÙNG LẠI đúng ảnh vừa tải (khỏi fetch 2 lần).
+  useEffect(() => {
+    if (active && fullUri) {
+      setPipImage(fullUri.replace(/^data:[^;]+;base64,/, ""));
+    }
+  }, [active, fullUri]);
+
+  const ready = fullUri != null;
 
   return (
     <Pressable style={[styles.post, { height }]} onPress={() => setTapped((t) => !t)}>
@@ -238,17 +240,15 @@ function PostView({
         <Image source={{ uri: photo.thumb }} style={StyleSheet.absoluteFill} blurRadius={12} resizeMode="cover" />
       ) : null}
       {/* Ảnh gốc: contain → hiện TRỌN ảnh đúng tỉ lệ, không cắt. */}
-      {headers && webConfigured && (
+      {fullUri && (
         <Image
-          source={{ uri: photoUrl(photo.driveFileId), headers }}
-          style={[StyleSheet.absoluteFill, !ready && styles.hidden]}
+          source={{ uri: fullUri }}
+          style={StyleSheet.absoluteFill}
           resizeMode="contain"
-          onLoad={() => setReady(true)}
-          onError={() => setReady(true)}
         />
       )}
 
-      {/* Loading cho tới khi ảnh gốc load xong (iOS tự cache nên lần sau tức thì). */}
+      {/* Loading cho tới khi ảnh gốc tải xong. */}
       {!ready && (
         <View style={styles.loadingLayer} pointerEvents="none">
           <BreathingLogo size={60} />
