@@ -193,6 +193,13 @@ export async function requestZoom(callId: string, factor: number): Promise<void>
   }).catch(() => {});
 }
 
+/** Người xem khoá (true) / mở (false) nét ở tâm camera bên chia sẻ. */
+export async function requestFocus(callId: string, locked: boolean): Promise<void> {
+  await updateDoc(doc(getDb(), "calls", callId), {
+    wantFocus: { at: Date.now(), locked },
+  }).catch(() => {});
+}
+
 export async function pickCameraId(
   facing: "user" | "environment",
 ): Promise<string | undefined> {
@@ -262,6 +269,8 @@ export async function shareCamera(params: {
   onState: (state: RTCPeerConnectionState) => void;
   /** Người xem chỉnh zoom → nền tảng tự áp (mobile: videoZoomFactor). Web bỏ qua. */
   onZoom?: (deviceId: string, factor: number) => void;
+  /** Người xem khoá/mở nét ở tâm (mobile: focusMode). Web bỏ qua. */
+  onFocus?: (deviceId: string, locked: boolean) => void;
 }): Promise<ShareSession> {
   const db = getDb();
   const callRef = doc(db, "calls", params.callId);
@@ -402,6 +411,7 @@ export async function shareCamera(params: {
   let lastAudioAt = 0;
   let lastCameraAt = 0;
   let lastZoomAt = 0;
+  let lastFocusAt = 0;
 
   let lastWant: unknown = null;
   const unsubDoc = onSnapshot(
@@ -435,6 +445,12 @@ export async function shareCamera(params: {
         lastZoomAt = wz.at;
         const factor = Number(wz.factor) || 1;
         if (curDeviceId && params.onZoom) params.onZoom(curDeviceId, factor);
+      }
+      // Người xem khoá/mở nét ở tâm camera.
+      const wfo = d.wantFocus;
+      if (wfo && typeof wfo.at === "number" && wfo.at > lastFocusAt) {
+        lastFocusAt = wfo.at;
+        if (curDeviceId && params.onFocus) params.onFocus(curDeviceId, !!wfo.locked);
       }
       // Người xem yêu cầu đổi chất lượng (còn tươi).
       const wq = d.wantQuality;

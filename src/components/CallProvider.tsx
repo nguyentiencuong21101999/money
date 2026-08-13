@@ -16,6 +16,7 @@ import {
   requestAudio,
   requestCamera,
   requestFacing,
+  requestFocus,
   requestQuality,
   requestZoom,
   shareCamera,
@@ -68,6 +69,8 @@ interface CallContext {
   setCamera: (deviceId: string) => void;
   /** Người xem chỉnh zoom camera bên chia sẻ (1 = không zoom). */
   setZoom: (factor: number) => void;
+  /** Người xem khoá/mở nét ở tâm camera bên chia sẻ. */
+  setFocus: (locked: boolean) => void;
   hangUp: () => void;
 }
 
@@ -198,6 +201,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
     void requestZoom(cid, factor);
   }, []);
 
+  const setFocus = useCallback((locked: boolean) => {
+    const cid = viewCallIdRef.current;
+    if (!cid) return;
+    void requestFocus(cid, locked);
+  }, []);
+
   const share = useCallback(
     async (callId: string, quality: Quality = "720p") => {
       if (!user?.email) throw new Error("Cần đăng nhập.");
@@ -291,6 +300,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         setListen,
         setCamera,
         setZoom,
+        setFocus,
         hangUp,
       }}
     >
@@ -303,6 +313,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         onSetListen={setListen}
         onSetCamera={setCamera}
         onSetZoom={setZoom}
+        onSetFocus={setFocus}
       />
     </Ctx.Provider>
   );
@@ -334,6 +345,7 @@ function FloatingCall({
   onSetListen,
   onSetCamera,
   onSetZoom,
+  onSetFocus,
 }: {
   call: CallState | null;
   onHangUp: () => void;
@@ -342,6 +354,7 @@ function FloatingCall({
   onSetListen: (on: boolean) => void;
   onSetCamera: (deviceId: string) => void;
   onSetZoom: (factor: number) => void;
+  onSetFocus: (locked: boolean) => void;
 }) {
   if (!call) return null;
   if (call.role === "sharer") {
@@ -356,6 +369,7 @@ function FloatingCall({
       onSetListen={onSetListen}
       onSetCamera={onSetCamera}
       onSetZoom={onSetZoom}
+      onSetFocus={onSetFocus}
     />
   );
 }
@@ -442,6 +456,7 @@ function ViewerWidget({
   onSetListen,
   onSetCamera,
   onSetZoom,
+  onSetFocus,
 }: {
   call: CallState;
   onHangUp: () => void;
@@ -450,8 +465,10 @@ function ViewerWidget({
   onSetListen: (on: boolean) => void;
   onSetCamera: (deviceId: string) => void;
   onSetZoom: (factor: number) => void;
+  onSetFocus: (locked: boolean) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [focusLocked, setFocusLocked] = useState(false);
   // Bắt đầu tắt tiếng để iOS chịu tự phát; chạm để bật.
   const [soundOn, setSoundOn] = useState(false);
   const [minimized, setMinimized] = useState(false);
@@ -468,10 +485,16 @@ function ViewerWidget({
     setZoomText(String(v));
     onSetZoom(v);
   };
-  // Đổi ống kính → zoom mỗi cam là riêng, nên reset về 1x cho cam mới.
+  // Đổi ống kính → zoom + nét mỗi cam là riêng, nên reset cho cam mới.
   const pickCamera = (deviceId: string) => {
     onSetCamera(deviceId);
     applyZoom(1);
+    setFocusLocked(false);
+  };
+  const toggleFocus = () => {
+    const next = !focusLocked;
+    setFocusLocked(next);
+    onSetFocus(next);
   };
   const stream = call.remoteStream;
 
@@ -614,6 +637,21 @@ function ViewerWidget({
               </button>
             </div>
           )}
+          {/* Khoá nét ở TÂM camera: bấm 1 lần nét giữa rồi giữ, hết dò mờ-rõ. */}
+          {call.remoteStream && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleFocus();
+              }}
+              className={`absolute top-1/2 left-2 -translate-y-1/2 rounded-full px-3 py-2 text-xs font-medium transition ${
+                focusLocked ? "bg-white text-black" : "bg-black/60 text-white"
+              }`}
+            >
+              {focusLocked ? "🔒 Nét" : "Khoá nét"}
+            </button>
+          )}
           {/* Chọn ống kính = ZOOM QUANG thật (đổi hẳn camera bên chia sẻ). */}
           {call.remoteStream && call.cameras && call.cameras.length > 1 && (
             <div
@@ -648,6 +686,7 @@ function ViewerWidget({
               onClick={() => {
                 onSwitchCamera();
                 applyZoom(1); // đổi cam → reset zoom về 1x
+                setFocusLocked(false); // và về tự động lấy nét
               }}
               className="rounded-lg bg-white/15 px-4 py-2 text-sm font-medium text-white transition active:scale-[0.97]"
             >

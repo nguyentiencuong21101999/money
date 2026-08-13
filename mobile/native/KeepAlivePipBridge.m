@@ -13,4 +13,7 @@ RCT_EXTERN_METHOD(setImage:(NSString *)base64)
 // Zoom camera đang quay theo deviceId (uniqueID) + hệ số (1 = không zoom).
 RCT_EXTERN_METHOD(setCameraZoom:(NSString *)deviceId factor:(nonnull NSNumber *)factor)
 
+// Khoá/mở nét ở tâm camera (locked = 1/0).
+RCT_EXTERN_METHOD(setCameraFocus:(NSString *)deviceId locked:(nonnull NSNumber *)locked)
+
 @end
