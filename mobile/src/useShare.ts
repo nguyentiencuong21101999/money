@@ -6,6 +6,7 @@ import {
   pickCameraId,
   QUALITY,
   shareCamera,
+  VIDEO_FPS,
   watchRoomCount,
   type Presence,
   type Quality,
@@ -82,7 +83,7 @@ export function useShare(myEmail: string) {
           ...(camId ? { deviceId: camId } : { facingMode: "user" }),
           width: { ideal: q.width },
           height: { ideal: q.height },
-          frameRate: { ideal: 24 },
+          frameRate: { ideal: VIDEO_FPS },
         },
         // KHÔNG lấy mic ở đây. Mic do NGƯỜI XEM bật (cờ wantAudio); shareCamera
         // thêm/gỡ track mic theo cờ đó. Mặc định im lặng, mic không hề active.

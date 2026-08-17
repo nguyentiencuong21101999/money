@@ -22,6 +22,7 @@ import {
   shareCamera,
   viewRoom,
   watchRoomCount,
+  type CallStats,
   type CameraInfo,
   type Presence,
   type Quality,
@@ -52,6 +53,8 @@ interface CallState {
   cameras?: CameraInfo[];
   /** deviceId camera đang chọn (để tô nút). */
   cameraId?: string;
+  /** Số liệu luồng đang nhận (chỉ bên xem), cập nhật mỗi giây. */
+  stats?: CallStats | null;
 }
 
 interface CallContext {
@@ -265,6 +268,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         onRemoteStream: (remoteStream) =>
           setCall((c) => (c ? { ...c, remoteStream } : c)),
         onCameras: (cameras) => setCall((c) => (c ? { ...c, cameras } : c)),
+        onStats: (stats) => setCall((c) => (c ? { ...c, stats } : c)),
       });
       handleRef.current = handle;
       viewCallIdRef.current = callId;
@@ -661,7 +665,23 @@ function ViewerWidget({
         <div className="flex items-center gap-2 bg-black/90 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-white">{label}</p>
-            <p className="text-xs text-white/60">{stateLabel(call.connState)}</p>
+            <p className="text-xs text-white/60">
+              {stateLabel(call.connState)}
+              {/* Số liệu thật để phân biệt "thiếu băng thông" với "mất gói":
+                  kbps thấp mà mất ≈ 0 → nén thô (ô vuông); mất > 0 kèm pli tăng
+                  → gói rơi. Đoán bằng mắt hai cái này giống hệt nhau. */}
+              {call.stats && (
+                <span className="tabular-nums">
+                  {" · "}
+                  {call.stats.width}×{call.stats.height} · {call.stats.fps}fps ·{" "}
+                  {call.stats.kbps} kbps ·{" "}
+                  <span className={call.stats.loss > 1 ? "text-critical" : ""}>
+                    mất {call.stats.loss.toFixed(1)}%
+                  </span>{" "}
+                  · pli {call.stats.pli}
+                </span>
+              )}
+            </p>
           </div>
           {/* Bật tiếng = xin bên kia mở mic, nên để hẳn một nút có trạng thái
               rõ (sáng = đang nghe) thay vì chạm mù vào khung hình. */}
