@@ -41,6 +41,7 @@ Phân quyền nằm ở [`firestore.rules`](../firestore.rules): chỉ tài kho�
 | `wantOffer` | xem | Dấu thời gian; **đổi giá trị** = xin offer mới |
 | `wantFacing` | xem | `{ at, facing: "user" \| "environment" }` |
 | `wantQuality` | xem | `{ at, quality: "480p" \| "720p" \| "1080p" }` |
+| `wantFps` | xem | `{ at, fps: number }` — bên chia sẻ **kẹp** về 5–60, không lọc theo danh sách |
 
 Subcollection:
 
@@ -157,33 +158,28 @@ Bên xem không điều khiển camera trực tiếp — nó **đặt yêu cầu
 ```
 wantFacing:  { at: Date.now(), facing: "user" | "environment" }
 wantQuality: { at: Date.now(), quality: "480p" | "720p" | "1080p" }
+wantFps:     { at: Date.now(), fps: number }   // kẹp về [5, 60] ở bên chia sẻ
 ```
 
 Bên chia sẻ chỉ nhận yêu cầu **còn tươi**: `Date.now() - at < 40000`. Và phải nhớ `at` đã xử lý lần trước để không áp lại cùng một yêu cầu mỗi lần snapshot bắn.
 
-Độ phân giải (tất cả 4:3 — đúng tỉ lệ cảm biến iPhone nên mọi mức đều lấy trọn góc nhìn) và trần bitrate khi gửi:
+Độ phân giải (tất cả 4:3 — đúng tỉ lệ cảm biến iPhone nên mọi mức đều lấy trọn góc nhìn):
 
-| Mức | Kích thước | maxBitrate |
-|---|---|---|
-| `480p` | 640 × 480 | 1,2 Mbps |
-| `720p` | 960 × 720 | 2,5 Mbps |
-| `1080p` | 1440 × 1080 | 5 Mbps |
+| Mức | Kích thước |
+|---|---|
+| `480p` | 640 × 480 |
+| `720p` | 960 × 720 |
+| `1080p` | 1440 × 1080 |
+
+Nhịp quay đổi cùng một đường: `wantFps` → mở lại camera với `frameRate` mới. **Cố ý không dùng `sender.setParameters()`** — đường đó từng làm hỏng kết nối, và WebRTC dù sao cũng không gửi nhiều khung hơn số camera đẻ ra.
+
+Chất lượng và nhịp quay là **một cặp đánh đổi**, cùng ăn chung một lượng băng thông. Số bit mỗi khung cần để không vỡ ô: 480p ~30 kbit, 720p ~65 kbit, 1080p ~150 kbit. Lấy `kbps ÷ fps` (màn xem hiện sẵn cả hai) là biết đang đủ hay đói.
+
+> **Bẫy iOS:** nếu Center Stage đang bật (react-native-webrtc tự bật cho cam trước), `VideoCaptureController.m` kẹp fps vào dải Center Stage — dải này là 30–30, nên mọi giá trị nhỏ hơn 30 bị đẩy **ngược lên** 30. Nghĩa là nút 15/24fps **không có tác dụng ở cam trước** cho tới khi tắt Center Stage.
 
 Đổi bằng cách **lấy hẳn stream mới** rồi `sender.replaceTrack()` — không đàm phán lại.
 
 > **Phải `stop()` track cũ TRƯỚC khi gọi `getUserMedia`.** iOS không cho mở hai luồng camera cùng lúc, và `applyConstraints` để đổi độ phân giải trên iOS gần như vô hiệu.
-
-### Vì sao phải chỉnh encoder (`tuneVideoSender`)
-
-Để mặc định thì **hễ cảnh động là mờ**, đứng yên lại nét. Ba nguyên nhân chồng lên nhau:
-
-1. `degradationPreference` mặc định (`balanced` / `maintain-framerate`) cho phép encoder **hạ độ phân giải** để giữ fps. Màn theo dõi camera cần ngược lại → đặt `maintain-resolution`: thiếu băng thông thì rớt fps, không mờ.
-2. Không đặt `maxBitrate` thì libwebrtc kẹp theo bảng mặc định, khá thấp so với khung 4:3 lớn — cảnh động cần nhiều bit hơn hẳn cảnh tĩnh nên vỡ ngay.
-3. Quay ở 24fps cho iOS phơi sáng tới ~42ms mỗi khung → **nhoè thật ở khâu quang học**, chưa dính gì tới nén. Quay 30fps (`VIDEO_FPS`).
-
-Gọi `tuneVideoSender()` lại sau **mỗi** lần tạo peer connection mới hoặc `replaceTrack` — sender mới thì tham số về mặc định.
-
-> **Bẫy iOS:** react-native-webrtc 124 gửi `degradationPreference` dạng chuỗi `"MAINTAIN_RESOLUTION"` sang một property `NSNumber` của native → iOS đọc ra `0` (= `disabled`), im lặng áp sai. Phải gửi thẳng số enum (`2` = maintain-resolution) bằng object thường. Đổi lại, lớp bọc JS ném lỗi khi đọc giá trị số native trả về — **sau** khi đã áp xong, nên nuốt lỗi đó.
 
 ---
 
