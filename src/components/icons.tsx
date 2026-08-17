@@ -123,6 +123,31 @@ export function FlipCameraIcon(props: {
   );
 }
 
+export function SpeakerIcon({
+  muted,
+  ...props
+}: {
+  size?: number;
+  className?: string;
+  gradient?: boolean;
+  /** Vẽ dấu gạch chéo thay hai vòng sóng — trạng thái đang tắt tiếng. */
+  muted?: boolean;
+}) {
+  return (
+    <Icon {...props}>
+      <path d="M11 5 6 9H3v6h3l5 4z" />
+      {muted ? (
+        <path d="M22 9l-6 6M16 9l6 6" />
+      ) : (
+        <>
+          <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+          <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+        </>
+      )}
+    </Icon>
+  );
+}
+
 export function ChevronRightIcon(props: {
   size?: number;
   className?: string;

@@ -82,16 +82,18 @@ protocol PipContent: AnyObject {
 /// Vẽ logo app (trái tim trắng trên gradient hồng → magenta, như assets/icon.png)
 /// và bơm lại đúng khung hình đó ~15fps.
 final class PipLogoContent: PipContent {
-  // Tỉ lệ DỌC 9:16 → iOS vẽ ô PiP hẹp (như video call Facebook), thay vì ô vuông
-  // bè. iPhone vẫn có cỡ tối thiểu nên không tí hon được, nhưng hẹp hơn nhiều.
-  // Kích thước lớn hơn ô PiP thật để trái tim không bị rỗ khi iOS scale lên.
-  private static let frameWidth = 270
-  private static let frameHeight = 480
+  // Tỉ lệ NGANG 16:9 → ô PiP nằm ngang (giống lúc dùng camera trước đây). Kích
+  // thước lớn hơn ô PiP thật để ảnh không bị rỗ khi iOS scale lên.
+  private static let frameWidth = 480
+  private static let frameHeight = 270
 
   // Nội dung mỗi khung hình y hệt nhau nên vẽ một lần rồi dùng lại pixel buffer;
   // mỗi frame chỉ bọc thêm CMSampleBuffer mới cho đúng timestamp.
   private var pixelBuffer: CVPixelBuffer?
   private var formatDesc: CMVideoFormatDescription?
+  /// Phiên bản ảnh đã vẽ; khác PipArtwork.version nghĩa là JS vừa đổi ảnh (vuốt
+  /// sang tấm khác) → phải vẽ lại, không dùng khung cache cũ.
+  private var lastArtworkVersion = -1
 
   private weak var layer: AVSampleBufferDisplayLayer?
   private var timer: Timer?
@@ -155,7 +157,11 @@ final class PipLogoContent: PipContent {
   private func makeFrame() -> CMSampleBuffer? {
     let pb: CVPixelBuffer
     let fd: CMVideoFormatDescription
-    if let cachedPB = pixelBuffer, let cachedFD = formatDesc {
+    // Dùng lại khung cache CHỈ khi ảnh chưa đổi. JS đổi ảnh (setImage) thì
+    // PipArtwork.version tăng → vẽ lại tấm mới.
+    if let cachedPB = pixelBuffer, let cachedFD = formatDesc,
+      lastArtworkVersion == PipArtwork.version
+    {
       pb = cachedPB
       fd = cachedFD
     } else {
@@ -166,6 +172,7 @@ final class PipLogoContent: PipContent {
       guard let newFD = desc else { return nil }
       pixelBuffer = newPB
       formatDesc = newFD
+      lastArtworkVersion = PipArtwork.version
       pb = newPB
       fd = newFD
     }
@@ -199,6 +206,9 @@ final class PipLogoContent: PipContent {
     let w = frameWidth, h = frameHeight
     var pixelBuffer: CVPixelBuffer?
     let attrs: [String: Any] = [
+      // IOSurface: BẮT BUỘC. PiP chạy ở tiến trình riêng, chỉ hiển thị được buffer
+      // chia sẻ qua IOSurface. Thiếu dòng này → ô PiP ĐEN dù layer vẫn nhận frame.
+      kCVPixelBufferIOSurfacePropertiesKey as String: [:] as CFDictionary,
       kCVPixelBufferCGImageCompatibilityKey as String: true,
       kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
     ]

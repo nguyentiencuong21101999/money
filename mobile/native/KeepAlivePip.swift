@@ -206,6 +206,11 @@ class KeepAlivePip: NSObject, AVPictureInPictureControllerDelegate,
     NotificationCenter.default.addObserver(
       self, selector: #selector(willResignActive),
       name: UIApplication.willResignActiveNotification, object: nil)
+    // Quay lại app → TẮT ô PiP: ô PiP chỉ nên nổi khi đang ở app KHÁC, không đè
+    // lên chính app khi đang mở.
+    NotificationCenter.default.addObserver(
+      self, selector: #selector(didBecomeActive),
+      name: UIApplication.didBecomeActiveNotification, object: nil)
   }
 
   @objc private func willResignActive() {
@@ -213,6 +218,11 @@ class KeepAlivePip: NSObject, AVPictureInPictureControllerDelegate,
       !pip.isPictureInPictureActive
     else { return }
     pip.startPictureInPicture()
+  }
+
+  @objc private func didBecomeActive() {
+    guard let pip = pipController, pip.isPictureInPictureActive else { return }
+    pip.stopPictureInPicture()
   }
 
   private static func keyWindow() -> UIWindow? {

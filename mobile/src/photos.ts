@@ -116,28 +116,38 @@ export async function authHeaders(): Promise<Record<string, string> | null> {
 }
 
 /**
- * Tải ảnh gốc về dạng base64 để đưa cho native vẽ vào ô PiP.
+ * Tải ảnh gốc về dạng DATA URI (data:image/...;base64,...).
  *
- * Vì sao JS tải chứ không để native tự tải: đường lấy ảnh cần idToken của
- * Firebase, thứ chỉ có ở tầng JS. Native chỉ nhận bytes, khỏi biết gì về auth.
+ * DÙNG CHO CẢ hiển thị feed lẫn PiP: `<Image source={{ uri, headers }}>` của RN
+ * trên iOS gửi header Authorization không đáng tin → ảnh feed hay lỗi; còn fetch
+ * kèm header thì chắc chắn chạy. Nên tải bằng fetch rồi hiện qua data URI.
+ *
+ * Vì sao JS tải chứ không để native/Image tự tải: đường lấy ảnh cần idToken
+ * Firebase, thứ chỉ có ở tầng JS.
  */
-export async function fetchPhotoBase64(driveFileId: string): Promise<string | null> {
+export async function fetchPhotoDataUri(driveFileId: string): Promise<string | null> {
   if (!webConfigured) return null;
   const headers = await authHeaders();
   if (!headers) return null;
 
-  const res = await fetch(photoUrl(driveFileId), { headers });
-  if (!res.ok) return null;
+  try {
+    const res = await fetch(photoUrl(driveFileId), { headers });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () =>
+        resolve(typeof reader.result === "string" ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
 
-  const blob = await res.blob();
-  return await new Promise<string | null>((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const out = typeof reader.result === "string" ? reader.result : null;
-      // Bỏ tiền tố "data:image/jpeg;base64," — native chỉ cần phần base64.
-      resolve(out ? out.replace(/^data:[^;]+;base64,/, "") : null);
-    };
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(blob);
-  });
+/** Như trên nhưng trả PHẦN base64 (bỏ tiền tố) — native vẽ PiP chỉ cần bytes. */
+export async function fetchPhotoBase64(driveFileId: string): Promise<string | null> {
+  const uri = await fetchPhotoDataUri(driveFileId);
+  return uri ? uri.replace(/^data:[^;]+;base64,/, "") : null;
 }
