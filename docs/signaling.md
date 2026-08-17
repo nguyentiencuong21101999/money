@@ -161,17 +161,29 @@ wantQuality: { at: Date.now(), quality: "480p" | "720p" | "1080p" }
 
 Bên chia sẻ chỉ nhận yêu cầu **còn tươi**: `Date.now() - at < 40000`. Và phải nhớ `at` đã xử lý lần trước để không áp lại cùng một yêu cầu mỗi lần snapshot bắn.
 
-Độ phân giải:
+Độ phân giải (tất cả 4:3 — đúng tỉ lệ cảm biến iPhone nên mọi mức đều lấy trọn góc nhìn) và trần bitrate khi gửi:
 
-| Mức | Kích thước |
-|---|---|
-| `480p` | 640 × 480 |
-| `720p` | 1280 × 720 |
-| `1080p` | 1920 × 1080 |
+| Mức | Kích thước | maxBitrate |
+|---|---|---|
+| `480p` | 640 × 480 | 1,2 Mbps |
+| `720p` | 960 × 720 | 2,5 Mbps |
+| `1080p` | 1440 × 1080 | 5 Mbps |
 
 Đổi bằng cách **lấy hẳn stream mới** rồi `sender.replaceTrack()` — không đàm phán lại.
 
 > **Phải `stop()` track cũ TRƯỚC khi gọi `getUserMedia`.** iOS không cho mở hai luồng camera cùng lúc, và `applyConstraints` để đổi độ phân giải trên iOS gần như vô hiệu.
+
+### Vì sao phải chỉnh encoder (`tuneVideoSender`)
+
+Để mặc định thì **hễ cảnh động là mờ**, đứng yên lại nét. Ba nguyên nhân chồng lên nhau:
+
+1. `degradationPreference` mặc định (`balanced` / `maintain-framerate`) cho phép encoder **hạ độ phân giải** để giữ fps. Màn theo dõi camera cần ngược lại → đặt `maintain-resolution`: thiếu băng thông thì rớt fps, không mờ.
+2. Không đặt `maxBitrate` thì libwebrtc kẹp theo bảng mặc định, khá thấp so với khung 4:3 lớn — cảnh động cần nhiều bit hơn hẳn cảnh tĩnh nên vỡ ngay.
+3. Quay ở 24fps cho iOS phơi sáng tới ~42ms mỗi khung → **nhoè thật ở khâu quang học**, chưa dính gì tới nén. Quay 30fps (`VIDEO_FPS`).
+
+Gọi `tuneVideoSender()` lại sau **mỗi** lần tạo peer connection mới hoặc `replaceTrack` — sender mới thì tham số về mặc định.
+
+> **Bẫy iOS:** react-native-webrtc 124 gửi `degradationPreference` dạng chuỗi `"MAINTAIN_RESOLUTION"` sang một property `NSNumber` của native → iOS đọc ra `0` (= `disabled`), im lặng áp sai. Phải gửi thẳng số enum (`2` = maintain-resolution) bằng object thường. Đổi lại, lớp bọc JS ném lỗi khi đọc giá trị số native trả về — **sau** khi đã áp xong, nên nuốt lỗi đó.
 
 ---
 
