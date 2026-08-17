@@ -29,6 +29,7 @@ import {
   type ViewSession,
 } from "@/lib/call";
 import type { Unsubscribe } from "firebase/firestore";
+import { SpeakerIcon } from "./icons";
 
 /**
  * Lớp "cuộc gọi toàn app". Đặt ở layout gốc nên kết nối WebRTC sống xuyên suốt
@@ -445,8 +446,8 @@ function SharerWidget({
 
 /**
  * Khung của NGƯỜI XEM (manager): mặc định toàn màn hình — có đổi cam, đổi chất
- * lượng, zoom số, chạm bật tiếng; bấm "Thu nhỏ" về khung nổi để vừa xem vừa
- * dùng app.
+ * lượng, zoom số, nút loa bật/tắt tiếng ở thanh dưới; bấm "Thu nhỏ" về khung
+ * nổi để vừa xem vừa dùng app.
  */
 function ViewerWidget({
   call,
@@ -559,10 +560,9 @@ function ViewerWidget({
   if (!minimized) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-black">
-        <div
-          onClick={toggleSound}
-          className="relative flex-1 cursor-pointer overflow-hidden"
-        >
+        {/* Không bắt chạm cả khung nữa: bật/tắt tiếng nằm ở nút loa thanh dưới,
+            chạm nhầm vào hình không còn mở mic bên kia. */}
+        <div className="relative flex-1 overflow-hidden">
           {call.remoteStream ? (
             video
           ) : (
@@ -575,10 +575,7 @@ function ViewerWidget({
           {countBadge}
           {/* Chọn chất lượng: gửi yêu cầu, bên chia sẻ áp ngay. */}
           {call.remoteStream && (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="absolute top-1.5 left-1/2 flex -translate-x-1/2 gap-1"
-            >
+            <div className="absolute top-1.5 left-1/2 flex -translate-x-1/2 gap-1">
               {(["480p", "720p", "1080p"] as const).map((q) => (
                 <button
                   key={q}
@@ -595,17 +592,9 @@ function ViewerWidget({
               ))}
             </div>
           )}
-          {call.remoteStream && !soundOn && (
-            <span className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white">
-              🔇 Chạm để bật tiếng
-            </span>
-          )}
           {/* Zoom THẬT: bên chia sẻ chỉnh videoZoomFactor (nét hơn phóng CSS). */}
           {call.remoteStream && (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="absolute top-1/2 right-2 flex -translate-y-1/2 flex-col items-center gap-1"
-            >
+            <div className="absolute top-1/2 right-2 flex -translate-y-1/2 flex-col items-center gap-1">
               <button
                 type="button"
                 onClick={() => applyZoom(Math.min(10, +(zoom + 0.5).toFixed(1)))}
@@ -641,10 +630,7 @@ function ViewerWidget({
           {call.remoteStream && (
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleFocus();
-              }}
+              onClick={toggleFocus}
               className={`absolute top-1/2 left-2 -translate-y-1/2 rounded-full px-3 py-2 text-xs font-medium transition ${
                 focusLocked ? "bg-white text-black" : "bg-black/60 text-white"
               }`}
@@ -654,10 +640,7 @@ function ViewerWidget({
           )}
           {/* Chọn ống kính = ZOOM QUANG thật (đổi hẳn camera bên chia sẻ). */}
           {call.remoteStream && call.cameras && call.cameras.length > 1 && (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="absolute bottom-14 left-1/2 flex -translate-x-1/2 gap-1"
-            >
+            <div className="absolute bottom-14 left-1/2 flex -translate-x-1/2 gap-1">
               {call.cameras.map((cam) => (
                 <button
                   key={cam.deviceId}
@@ -680,6 +663,21 @@ function ViewerWidget({
             <p className="truncate text-sm font-medium text-white">{label}</p>
             <p className="text-xs text-white/60">{stateLabel(call.connState)}</p>
           </div>
+          {/* Bật tiếng = xin bên kia mở mic, nên để hẳn một nút có trạng thái
+              rõ (sáng = đang nghe) thay vì chạm mù vào khung hình. */}
+          {call.remoteStream && (
+            <button
+              type="button"
+              onClick={toggleSound}
+              aria-pressed={soundOn}
+              aria-label={soundOn ? "Tắt tiếng" : "Bật tiếng"}
+              className={`flex h-10 w-10 items-center justify-center rounded-lg transition active:scale-[0.97] ${
+                soundOn ? "bg-white text-black" : "bg-white/15 text-white"
+              }`}
+            >
+              <SpeakerIcon size={20} muted={!soundOn} />
+            </button>
+          )}
           {call.remoteStream && (
             <button
               type="button"
