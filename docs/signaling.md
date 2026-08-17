@@ -35,6 +35,8 @@ Phân quyền nằm ở [`firestore.rules`](../firestore.rules): chỉ tài kho�
 |---|---|---|
 | `emails` | cả hai | Mảng đúng 2 email viết thường. Rule đọc field này để phân quyền |
 | `sharerEmail` | chia sẻ | Ai đang chia sẻ |
+| `activeCamera` | chia sẻ | deviceId camera **đang thật sự quay** |
+| `activeFacing` | chia sẻ | `"user"` \| `"environment"` của camera đang quay |
 | `status` | chia sẻ | `"sharing"` \| `"ended"` |
 | `offer` | chia sẻ | `{ type, sdp, offerId }` |
 | `answer` | xem | `{ type, sdp, offerId }` |
@@ -160,6 +162,8 @@ wantFacing:  { at: Date.now(), facing: "user" | "environment" }
 wantQuality: { at: Date.now(), quality: "480p" | "720p" | "1080p" }
 wantFps:     { at: Date.now(), fps: number }   // kẹp về [5, 60] ở bên chia sẻ
 ```
+
+> **Bên xem KHÔNG được tự suy ra camera đang dùng.** Nó chỉ đặt yêu cầu; bên chia sẻ mở camera xong thì ghi `activeCamera` + `activeFacing`, và bên xem tô nút theo đó. Đã từng vấp: bên xem giữ một cờ mặt cam riêng, cờ này không đổi khi người xem chọn thẳng ống kính → chọn 0.5x rồi bấm "Đổi cam" phải bấm **hai lần** mới sang cam trước, và nút ống kính sáng ở ống kính không còn dùng.
 
 Bên chia sẻ chỉ nhận yêu cầu **còn tươi**: `Date.now() - at < 40000`. Và phải nhớ `at` đã xử lý lần trước để không áp lại cùng một yêu cầu mỗi lần snapshot bắn.
 

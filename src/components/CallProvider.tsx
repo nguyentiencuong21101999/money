@@ -60,8 +60,10 @@ interface CallState {
   fps: Fps;
   /** Danh sách camera bên chia sẻ công bố (để người xem chọn ống kính). */
   cameras?: CameraInfo[];
-  /** deviceId camera đang chọn (để tô nút). */
+  /** deviceId camera bên chia sẻ ĐANG quay (bên đó báo, không phải đoán). */
   cameraId?: string;
+  /** Mặt cam đang quay — để nút "Đổi cam" biết lật sang đâu. */
+  facing?: "user" | "environment";
   /** Số liệu luồng đang nhận (chỉ bên xem), cập nhật mỗi giây. */
   stats?: CallStats | null;
 }
@@ -183,11 +185,15 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setCall(null);
   }, []);
 
+  // Lật mặt cam từ mặt bên chia sẻ ĐANG quay. Trước đây lật từ một cờ nội bộ,
+  // mà cờ đó không đổi khi người xem chọn thẳng ống kính → chọn 0.5x rồi bấm
+  // "Đổi cam" phải bấm hai lần mới sang được cam trước.
   const switchCamera = useCallback(() => {
     const cid = viewCallIdRef.current;
     if (!cid) return;
-    facingRef.current = facingRef.current === "user" ? "environment" : "user";
-    void requestFacing(cid, facingRef.current);
+    const next = facingRef.current === "user" ? "environment" : "user";
+    facingRef.current = next;
+    void requestFacing(cid, next);
   }, []);
 
   const switchQuality = useCallback((quality: Quality) => {
@@ -210,10 +216,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
     void requestAudio(cid, on);
   }, []);
 
+  // Chỉ GỬI yêu cầu; nút sáng theo `activeCamera` bên chia sẻ báo về, nên không
+  // còn cảnh nút sáng ở ống kính mà máy kia không hề đang dùng.
   const setCamera = useCallback((deviceId: string) => {
     const cid = viewCallIdRef.current;
     if (!cid) return;
-    setCall((c) => (c ? { ...c, cameraId: deviceId } : c));
     void requestCamera(cid, deviceId);
   }, []);
 
@@ -287,6 +294,13 @@ export function CallProvider({ children }: { children: ReactNode }) {
         onRemoteStream: (remoteStream) =>
           setCall((c) => (c ? { ...c, remoteStream } : c)),
         onCameras: (cameras) => setCall((c) => (c ? { ...c, cameras } : c)),
+        onActiveCamera: (deviceId, facing) => {
+          // Đồng bộ cờ lật mặt theo sự thật bên kia báo về.
+          facingRef.current = facing;
+          setCall((c) =>
+            c ? { ...c, cameraId: deviceId ?? undefined, facing } : c,
+          );
+        },
         onStats: (stats) => setCall((c) => (c ? { ...c, stats } : c)),
       });
       handleRef.current = handle;
