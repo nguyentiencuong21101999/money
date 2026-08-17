@@ -318,13 +318,40 @@ export async function shareCamera(params: {
   let curDeviceId: string | undefined = params.deviceId;
 
   // Ghi emails + đánh dấu đang chia sẻ (merge, không xoá wantOffer bên xem đã đặt).
-  await setDoc(callRef, { emails, sharerEmail: me, status: "sharing" }, { merge: true });
+  await setDoc(
+    callRef,
+    {
+      emails,
+      sharerEmail: me,
+      status: "sharing",
+      activeCamera: params.deviceId ?? null,
+      activeFacing: curFacing,
+    },
+    { merge: true },
+  );
 
   // Công bố danh sách camera để người xem chọn ống kính (zoom quang). Không chặn
   // luồng chính; lỗi thì thôi, người xem vẫn có nút đổi trước/sau mặc định.
+  // Nhớ lại danh sách để tra MẶT của một deviceId: người xem chọn thẳng ống kính
+  // thì bên chia sẻ phải biết mình vừa sang mặt nào, không thì nút "Đổi cam"
+  // (lật mặt) tính sai từ trạng thái sai.
+  let camerasCache: CameraInfo[] = [];
   void listCameras().then((cams) => {
+    camerasCache = cams;
     if (cams.length) void updateDoc(callRef, { cameras: cams }).catch(() => {});
   });
+
+  /**
+   * Công bố camera ĐANG THẬT SỰ quay. Thiếu bước này thì bên xem chỉ còn nước
+   * đoán: nút ống kính sáng sai, và "Đổi cam" lật từ một cờ đã lệch nên có lúc
+   * bấm mà không đổi gì.
+   */
+  function publishActive() {
+    void updateDoc(callRef, {
+      activeCamera: curDeviceId ?? null,
+      activeFacing: curFacing,
+    }).catch(() => {});
+  }
 
   let pc: RTCPeerConnection | null = null;
   let offerId = "";
@@ -382,8 +409,15 @@ export async function shareCamera(params: {
   // cho mở hai luồng camera cùng lúc; và đổi độ phân giải bằng applyConstraints
   // trên iOS gần như vô hiệu, nên phải lấy hẳn stream mới.
   let reacquiring = false;
+  let reacquirePending = false;
   async function reacquireVideo() {
-    if (reacquiring) return;
+    // Đang mở lại thì GHI NHỚ để chạy tiếp một lượt nữa, đừng vứt yêu cầu đi:
+    // bấm nhanh hai nút (đổi cam rồi chọn ống kính) mà nuốt mất cái sau thì
+    // người xem thấy nút sáng mà hình không đổi.
+    if (reacquiring) {
+      reacquirePending = true;
+      return;
+    }
     reacquiring = true;
     try {
       const q = QUALITY[curQuality];
@@ -396,29 +430,42 @@ export async function shareCamera(params: {
       // để zoom biết đang chỉnh device nào.
       const camId = curDeviceId ?? (await pickCameraId(curFacing));
       if (camId) curDeviceId = camId;
-      const ns = await navigator.mediaDevices.getUserMedia({
-        video: {
-          // deviceId chọn đúng ống kính (xem pickCameraId); web không có deviceId
-          // thì quay về facingMode.
-          ...(camId ? { deviceId: camId } : { facingMode: curFacing }),
-          width: { ideal: q.width },
-          height: { ideal: q.height },
-          // Đổi fps CHỈ bằng cách mở lại camera. Cố ý không dùng
-          // sender.setParameters: đường đó từng làm hỏng kết nối, và WebRTC dù
-          // sao cũng không gửi nhiều khung hơn số camera đẻ ra.
-          frameRate: { ideal: curFps },
-        },
-        audio: false,
-      });
+      const lens = camId
+        ? { deviceId: camId }
+        : ({ facingMode: curFacing } as const);
+      const size = { width: { ideal: q.width }, height: { ideal: q.height } };
+      // Đổi fps CHỈ bằng cách mở lại camera. Cố ý không dùng sender.setParameters:
+      // đường đó từng làm hỏng kết nối, và WebRTC dù sao cũng không gửi nhiều
+      // khung hơn số camera đẻ ra.
+      let ns: MediaStream;
+      try {
+        ns = await navigator.mediaDevices.getUserMedia({
+          video: { ...lens, ...size, frameRate: { ideal: curFps } },
+          audio: false,
+        });
+      } catch (err) {
+        // Ống kính này không đỡ nổi nhịp đang chọn → thà mất fps còn hơn mất
+        // hình. Không có nhánh này thì đổi sang ống kính yếu là đen màn.
+        console.error("[call] mở camera với fps yêu cầu lỗi, thử lại không fps", err);
+        ns = await navigator.mediaDevices.getUserMedia({
+          video: { ...lens, ...size },
+          audio: false,
+        });
+      }
       const nt = ns.getVideoTracks()[0];
       if (!nt) return;
       params.stream.addTrack(nt);
       const sender = pc?.getSenders().find((s) => s.track?.kind === "video");
       await sender?.replaceTrack(nt);
+      publishActive();
     } catch (err) {
       console.error("[call] lấy lại camera lỗi", err);
     } finally {
       reacquiring = false;
+      if (reacquirePending) {
+        reacquirePending = false;
+        void reacquireVideo();
+      }
     }
   }
 
@@ -476,6 +523,10 @@ export async function shareCamera(params: {
       if (wc && typeof wc.at === "number" && wc.at > lastCameraAt && wc.deviceId) {
         lastCameraAt = wc.at;
         curDeviceId = wc.deviceId as string;
+        // Chọn ống kính cũng là đổi mặt cam. Không cập nhật curFacing ở đây thì
+        // lần "Đổi cam" kế tiếp lật từ mặt cũ → bấm một lần không ăn.
+        const info = camerasCache.find((c) => c.deviceId === curDeviceId);
+        if (info) curFacing = info.facing;
         void reacquireVideo();
       }
       // Người xem chỉnh zoom → áp thẳng lên camera đang quay (nền tảng tự lo).
@@ -661,6 +712,8 @@ export async function viewRoom(params: {
   onRemoteStream: (stream: MediaStream | null) => void;
   /** Danh sách camera bên chia sẻ công bố, để người xem chọn ống kính. */
   onCameras?: (cams: CameraInfo[]) => void;
+  /** Camera bên chia sẻ ĐANG quay — nguồn sự thật để tô nút và lật mặt cam. */
+  onActiveCamera?: (deviceId: string | null, facing: "user" | "environment") => void;
   /** Số liệu luồng nhận, mỗi giây một nhịp (xem CallStats). */
   onStats?: (stats: CallStats) => void;
 }): Promise<ViewSession> {
@@ -681,6 +734,7 @@ export async function viewRoom(params: {
   let unsubCands: Unsubscribe | null = null;
   let stopStats: (() => void) | null = null;
   let lastCamerasJson = "";
+  let lastActive = "";
 
   const unsubDoc = onSnapshot(
     callRef,
@@ -692,6 +746,18 @@ export async function viewRoom(params: {
         if (json !== lastCamerasJson) {
           lastCamerasJson = json;
           params.onCameras(cams as CameraInfo[]);
+        }
+      }
+      // Camera đang quay: bên chia sẻ nói, bên xem KHÔNG đoán.
+      if (params.onActiveCamera) {
+        const d = s.data();
+        const active = `${d?.activeCamera ?? ""}|${d?.activeFacing ?? ""}`;
+        if (active !== lastActive) {
+          lastActive = active;
+          params.onActiveCamera(
+            (d?.activeCamera as string) ?? null,
+            d?.activeFacing === "environment" ? "environment" : "user",
+          );
         }
       }
       const offer = s.data()?.offer;
