@@ -13,7 +13,10 @@ import { useAuth } from "@/lib/auth";
 import {
   DEFAULT_FPS,
   enterRoom,
+  clampFps,
   FPS_CHOICES,
+  FPS_MAX,
+  FPS_MIN,
   QUALITY,
   requestAudio,
   requestCamera,
@@ -499,6 +502,13 @@ function ViewerWidget({
   // để gõ số lẻ (vd 3.6) trong lúc đang gõ chưa chuẩn hoá.
   const [zoom, setZoomState] = useState(1);
   const [zoomText, setZoomText] = useState("1");
+  // Ô gõ fps: giữ chuỗi trong lúc gõ, chuẩn hoá khi rời ô.
+  const [fpsText, setFpsText] = useState(String(call.fps));
+  const applyFps = (n: number) => {
+    const v = clampFps(n);
+    setFpsText(String(v));
+    onSwitchFps(v);
+  };
   const applyZoom = (factor: number) => {
     // Kẹp tối thiểu 1x, làm tròn 1 số lẻ. Trần thật do máy chia sẻ tự kẹp theo
     // maxAvailableVideoZoomFactor của ống kính.
@@ -609,12 +619,12 @@ function ViewerWidget({
                   </button>
                 ))}
               </div>
-              <div className="flex gap-1">
+              <div className="flex items-center gap-1">
                 {FPS_CHOICES.map((f) => (
                   <button
                     key={f}
                     type="button"
-                    onClick={() => onSwitchFps(f)}
+                    onClick={() => applyFps(f)}
                     className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${
                       call.fps === f
                         ? "bg-white text-black"
@@ -624,6 +634,20 @@ function ViewerWidget({
                     {f}fps
                   </button>
                 ))}
+                {/* Gõ số bất kỳ (35, 40, 45…). Máy tự kẹp về dải format đỡ nổi. */}
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={FPS_MIN}
+                  max={FPS_MAX}
+                  value={fpsText}
+                  onChange={(e) => setFpsText(e.target.value)}
+                  onBlur={() => applyFps(clampFps(parseInt(fpsText, 10) || call.fps))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                  }}
+                  className="w-10 rounded-full bg-black/60 px-1 py-0.5 text-center text-[10px] font-medium text-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                />
               </div>
               {/* Zoom THẬT: bên chia sẻ chỉnh videoZoomFactor (nét hơn phóng CSS). */}
               <div className="flex items-center gap-1">

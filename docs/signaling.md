@@ -41,7 +41,7 @@ Phân quyền nằm ở [`firestore.rules`](../firestore.rules): chỉ tài kho�
 | `wantOffer` | xem | Dấu thời gian; **đổi giá trị** = xin offer mới |
 | `wantFacing` | xem | `{ at, facing: "user" \| "environment" }` |
 | `wantQuality` | xem | `{ at, quality: "480p" \| "720p" \| "1080p" }` |
-| `wantFps` | xem | `{ at, fps: 15 \| 24 \| 30 }` |
+| `wantFps` | xem | `{ at, fps: number }` — bên chia sẻ **kẹp** về 5–60, không lọc theo danh sách |
 
 Subcollection:
 
@@ -158,7 +158,7 @@ Bên xem không điều khiển camera trực tiếp — nó **đặt yêu cầu
 ```
 wantFacing:  { at: Date.now(), facing: "user" | "environment" }
 wantQuality: { at: Date.now(), quality: "480p" | "720p" | "1080p" }
-wantFps:     { at: Date.now(), fps: 15 | 24 | 30 }
+wantFps:     { at: Date.now(), fps: number }   // kẹp về [5, 60] ở bên chia sẻ
 ```
 
 Bên chia sẻ chỉ nhận yêu cầu **còn tươi**: `Date.now() - at < 40000`. Và phải nhớ `at` đã xử lý lần trước để không áp lại cùng một yêu cầu mỗi lần snapshot bắn.

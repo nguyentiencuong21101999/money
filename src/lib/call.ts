@@ -122,10 +122,22 @@ export async function requestQuality(
  * Quy đổi để chọn cho đúng — số bit mỗi khung cần để không vỡ ô: 480p ~30 kbit,
  * 720p ~65 kbit, 1080p ~150 kbit. Lấy kbps đang nhận (hiện ở màn xem) chia cho
  * fps là ra con số thật.
+ *
+ * Nhận BẤT KỲ số nào trong [FPS_MIN, FPS_MAX] chứ không phải một danh sách cố
+ * định: bên chia sẻ chỉ kẹp chứ không lọc, nên thêm/bớt nút ở bên xem về sau
+ * không cần build lại app.
  */
-export type Fps = 15 | 24 | 30;
-export const FPS_CHOICES: Fps[] = [15, 24, 30];
+export type Fps = number;
+export const FPS_MIN = 5;
+export const FPS_MAX = 60;
+/** Nút bấm nhanh ở màn xem. Đổi mảng này KHÔNG cần đụng tới app. */
+export const FPS_CHOICES: Fps[] = [15, 24, 30, 60];
 export const DEFAULT_FPS: Fps = 30;
+
+/** Kẹp về dải hợp lệ, làm tròn. Máy vẫn có thể cho ít hơn nếu format không đỡ nổi. */
+export function clampFps(n: number): Fps {
+  return Math.round(Math.min(FPS_MAX, Math.max(FPS_MIN, n)));
+}
 
 /** Người xem yêu cầu bên chia sẻ đổi nhịp quay. */
 export async function requestFps(callId: string, fps: Fps): Promise<void> {
@@ -499,10 +511,10 @@ export async function shareCamera(params: {
         typeof wfp.at === "number" &&
         wfp.at > lastFpsAt &&
         Date.now() - wfp.at < 40000 &&
-        FPS_CHOICES.includes(wfp.fps as Fps)
+        Number.isFinite(Number(wfp.fps))
       ) {
         lastFpsAt = wfp.at;
-        curFps = wfp.fps as Fps;
+        curFps = clampFps(Number(wfp.fps));
         void reacquireVideo();
       }
       // Người xem bật/tắt mic của bên chia sẻ. Đổi thì đàm phán lại để thêm/gỡ
