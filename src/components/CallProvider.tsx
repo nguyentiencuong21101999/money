@@ -11,12 +11,15 @@ import {
 } from "react";
 import { useAuth } from "@/lib/auth";
 import {
+  DEFAULT_FPS,
   enterRoom,
+  FPS_CHOICES,
   QUALITY,
   requestAudio,
   requestCamera,
   requestFacing,
   requestFocus,
+  requestFps,
   requestQuality,
   requestZoom,
   shareCamera,
@@ -24,6 +27,7 @@ import {
   watchRoomCount,
   type CallStats,
   type CameraInfo,
+  type Fps,
   type Presence,
   type Quality,
   type ShareSession,
@@ -49,6 +53,8 @@ interface CallState {
   count: number;
   /** Chất lượng người xem đang yêu cầu (để tô nút). */
   quality: Quality;
+  /** Nhịp quay người xem đang yêu cầu (để tô nút). */
+  fps: Fps;
   /** Danh sách camera bên chia sẻ công bố (để người xem chọn ống kính). */
   cameras?: CameraInfo[];
   /** deviceId camera đang chọn (để tô nút). */
@@ -67,6 +73,8 @@ interface CallContext {
   switchCamera: () => void;
   /** Người xem yêu cầu bên chia sẻ đổi chất lượng. */
   switchQuality: (quality: Quality) => void;
+  /** Người xem yêu cầu bên chia sẻ đổi nhịp quay (đánh đổi mượt ↔ nét). */
+  switchFps: (fps: Fps) => void;
   /** Người xem bật/tắt MIC của bên chia sẻ (mặc định tắt). */
   setListen: (on: boolean) => void;
   /** Người xem chọn ống kính (theo deviceId trong call.cameras). */
@@ -186,6 +194,13 @@ export function CallProvider({ children }: { children: ReactNode }) {
     void requestQuality(cid, quality);
   }, []);
 
+  const switchFps = useCallback((fps: Fps) => {
+    const cid = viewCallIdRef.current;
+    if (!cid) return;
+    setCall((c) => (c ? { ...c, fps } : c));
+    void requestFps(cid, fps);
+  }, []);
+
   const setListen = useCallback((on: boolean) => {
     const cid = viewCallIdRef.current;
     if (!cid) return;
@@ -251,6 +266,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         remoteStream: null,
         count: 1,
         quality,
+        fps: DEFAULT_FPS,
       });
       trackPresence(callId, email);
     },
@@ -281,6 +297,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         remoteStream: null,
         count: 1,
         quality: "720p",
+        fps: DEFAULT_FPS,
       });
       trackPresence(callId, user.email);
     },
@@ -302,6 +319,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         view,
         switchCamera,
         switchQuality,
+        switchFps,
         setListen,
         setCamera,
         setZoom,
@@ -315,10 +333,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
         onHangUp={hangUp}
         onSwitchCamera={switchCamera}
         onSwitchQuality={switchQuality}
+        onSwitchFps={switchFps}
         onSetListen={setListen}
         onSetCamera={setCamera}
         onSetZoom={setZoom}
-        onSetFocus={setFocus}
       />
     </Ctx.Provider>
   );
@@ -347,19 +365,19 @@ function FloatingCall({
   onHangUp,
   onSwitchCamera,
   onSwitchQuality,
+  onSwitchFps,
   onSetListen,
   onSetCamera,
   onSetZoom,
-  onSetFocus,
 }: {
   call: CallState | null;
   onHangUp: () => void;
   onSwitchCamera: () => void;
   onSwitchQuality: (quality: Quality) => void;
+  onSwitchFps: (fps: Fps) => void;
   onSetListen: (on: boolean) => void;
   onSetCamera: (deviceId: string) => void;
   onSetZoom: (factor: number) => void;
-  onSetFocus: (locked: boolean) => void;
 }) {
   if (!call) return null;
   if (call.role === "sharer") {
@@ -371,10 +389,10 @@ function FloatingCall({
       onHangUp={onHangUp}
       onSwitchCamera={onSwitchCamera}
       onSwitchQuality={onSwitchQuality}
+      onSwitchFps={onSwitchFps}
       onSetListen={onSetListen}
       onSetCamera={onSetCamera}
       onSetZoom={onSetZoom}
-      onSetFocus={onSetFocus}
     />
   );
 }
@@ -458,22 +476,21 @@ function ViewerWidget({
   onHangUp,
   onSwitchCamera,
   onSwitchQuality,
+  onSwitchFps,
   onSetListen,
   onSetCamera,
   onSetZoom,
-  onSetFocus,
 }: {
   call: CallState;
   onHangUp: () => void;
   onSwitchCamera: () => void;
   onSwitchQuality: (quality: Quality) => void;
+  onSwitchFps: (fps: Fps) => void;
   onSetListen: (on: boolean) => void;
   onSetCamera: (deviceId: string) => void;
   onSetZoom: (factor: number) => void;
-  onSetFocus: (locked: boolean) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [focusLocked, setFocusLocked] = useState(false);
   // Bắt đầu tắt tiếng để iOS chịu tự phát; chạm để bật.
   const [soundOn, setSoundOn] = useState(false);
   const [minimized, setMinimized] = useState(false);
@@ -490,16 +507,10 @@ function ViewerWidget({
     setZoomText(String(v));
     onSetZoom(v);
   };
-  // Đổi ống kính → zoom + nét mỗi cam là riêng, nên reset cho cam mới.
+  // Đổi ống kính → zoom mỗi cam là riêng, nên reset cho cam mới.
   const pickCamera = (deviceId: string) => {
     onSetCamera(deviceId);
     applyZoom(1);
-    setFocusLocked(false);
-  };
-  const toggleFocus = () => {
-    const next = !focusLocked;
-    setFocusLocked(next);
-    onSetFocus(next);
   };
   const stream = call.remoteStream;
 
@@ -577,70 +588,76 @@ function ViewerWidget({
           )}
           {liveBadge}
           {countBadge}
-          {/* Chọn chất lượng: gửi yêu cầu, bên chia sẻ áp ngay. */}
+          {/* Chọn chất lượng và nhịp quay: gửi yêu cầu, bên chia sẻ mở lại camera.
+              Hai hàng này là một cặp đánh đổi — nhiều điểm ảnh hay nhiều khung,
+              cùng ăn chung một lượng băng thông. */}
           {call.remoteStream && (
-            <div className="absolute top-1.5 left-1/2 flex -translate-x-1/2 gap-1">
-              {(["480p", "720p", "1080p"] as const).map((q) => (
+            <div className="absolute top-1.5 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1">
+              <div className="flex gap-1">
+                {(["480p", "720p", "1080p"] as const).map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => onSwitchQuality(q)}
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${
+                      call.quality === q
+                        ? "bg-white text-black"
+                        : "bg-black/60 text-white"
+                    }`}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1">
+                {FPS_CHOICES.map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => onSwitchFps(f)}
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${
+                      call.fps === f
+                        ? "bg-white text-black"
+                        : "bg-black/60 text-white"
+                    }`}
+                  >
+                    {f}fps
+                  </button>
+                ))}
+              </div>
+              {/* Zoom THẬT: bên chia sẻ chỉnh videoZoomFactor (nét hơn phóng CSS). */}
+              <div className="flex items-center gap-1">
                 <button
-                  key={q}
                   type="button"
-                  onClick={() => onSwitchQuality(q)}
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${
-                    call.quality === q
-                      ? "bg-white text-black"
-                      : "bg-black/60 text-white"
-                  }`}
+                  onClick={() => applyZoom(Math.max(1, +(zoom - 0.5).toFixed(1)))}
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-sm font-semibold text-white"
                 >
-                  {q}
+                  −
                 </button>
-              ))}
+                {/* Gõ số lẻ được (vd 3.6). Áp ngay khi gõ, chuẩn hoá khi rời ô. */}
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min={1}
+                  step={0.1}
+                  value={zoomText}
+                  onChange={(e) => {
+                    setZoomText(e.target.value);
+                    const v = parseFloat(e.target.value);
+                    if (!Number.isNaN(v) && v >= 1) onSetZoom(+v.toFixed(1));
+                  }}
+                  onBlur={() => applyZoom(parseFloat(zoomText) || 1)}
+                  className="w-12 rounded-full bg-black/60 px-1 py-0.5 text-center text-[10px] font-medium text-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => applyZoom(Math.min(10, +(zoom + 0.5).toFixed(1)))}
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-sm font-semibold text-white"
+                >
+                  +
+                </button>
+              </div>
             </div>
-          )}
-          {/* Zoom THẬT: bên chia sẻ chỉnh videoZoomFactor (nét hơn phóng CSS). */}
-          {call.remoteStream && (
-            <div className="absolute top-1/2 right-2 flex -translate-y-1/2 flex-col items-center gap-1">
-              <button
-                type="button"
-                onClick={() => applyZoom(Math.min(10, +(zoom + 0.5).toFixed(1)))}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-lg font-semibold text-white"
-              >
-                +
-              </button>
-              {/* Gõ số lẻ được (vd 3.6). Áp ngay khi gõ, chuẩn hoá khi rời ô. */}
-              <input
-                type="number"
-                inputMode="decimal"
-                min={1}
-                step={0.1}
-                value={zoomText}
-                onChange={(e) => {
-                  setZoomText(e.target.value);
-                  const v = parseFloat(e.target.value);
-                  if (!Number.isNaN(v) && v >= 1) onSetZoom(+v.toFixed(1));
-                }}
-                onBlur={() => applyZoom(parseFloat(zoomText) || 1)}
-                className="w-12 rounded-full bg-black/60 px-1 py-0.5 text-center text-[11px] font-medium text-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-              />
-              <button
-                type="button"
-                onClick={() => applyZoom(Math.max(1, +(zoom - 0.5).toFixed(1)))}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-lg font-semibold text-white"
-              >
-                −
-              </button>
-            </div>
-          )}
-          {/* Khoá nét ở TÂM camera: bấm 1 lần nét giữa rồi giữ, hết dò mờ-rõ. */}
-          {call.remoteStream && (
-            <button
-              type="button"
-              onClick={toggleFocus}
-              className={`absolute top-1/2 left-2 -translate-y-1/2 rounded-full px-3 py-2 text-xs font-medium transition ${
-                focusLocked ? "bg-white text-black" : "bg-black/60 text-white"
-              }`}
-            >
-              {focusLocked ? "🔒 Nét" : "Khoá nét"}
-            </button>
           )}
           {/* Chọn ống kính = ZOOM QUANG thật (đổi hẳn camera bên chia sẻ). */}
           {call.remoteStream && call.cameras && call.cameras.length > 1 && (
@@ -704,7 +721,6 @@ function ViewerWidget({
               onClick={() => {
                 onSwitchCamera();
                 applyZoom(1); // đổi cam → reset zoom về 1x
-                setFocusLocked(false); // và về tự động lấy nét
               }}
               className="rounded-lg bg-white/15 px-4 py-2 text-sm font-medium text-white transition active:scale-[0.97]"
             >

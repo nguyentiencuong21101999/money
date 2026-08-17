@@ -2,11 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { mediaDevices, registerGlobals } from "react-native-webrtc";
 import type { Unsubscribe } from "firebase/firestore";
 import {
+  DEFAULT_FPS,
   enterRoom,
   pickCameraId,
   QUALITY,
   shareCamera,
-  VIDEO_FPS,
   watchRoomCount,
   type Presence,
   type Quality,
@@ -83,7 +83,9 @@ export function useShare(myEmail: string) {
           ...(camId ? { deviceId: camId } : { facingMode: "user" }),
           width: { ideal: q.width },
           height: { ideal: q.height },
-          frameRate: { ideal: VIDEO_FPS },
+          // Khớp với DEFAULT_FPS bên shareCamera: lệch thì lần đổi fps đầu tiên
+          // của người xem trông như không có tác dụng.
+          frameRate: { ideal: DEFAULT_FPS },
         },
         // KHÔNG lấy mic ở đây. Mic do NGƯỜI XEM bật (cờ wantAudio); shareCamera
         // thêm/gỡ track mic theo cờ đó. Mặc định im lặng, mic không hề active.
@@ -95,6 +97,7 @@ export function useShare(myEmail: string) {
         myEmail: ctx.email,
         stream,
         quality: ctx.quality,
+        fps: DEFAULT_FPS,
         deviceId: camId, // để zoom biết chỉnh camera nào
         onState: (connState) => setState((s) => ({ ...s, connState })),
         // Người xem chỉnh zoom → áp thẳng videoZoomFactor lên camera đang quay.

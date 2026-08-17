@@ -53,93 +53,6 @@ export const QUALITY: Record<Quality, { width: number; height: number }> = {
   "1080p": { width: 1440, height: 1080 },
 };
 
-/**
- * Trần bitrate video khi GỬI, theo mức chất lượng (bit/giây).
- *
- * Không đặt thì libwebrtc tự kẹp theo bảng mặc định của nó — khá thấp cho khung
- * 4:3 lớn. Cảnh đứng yên gần như không tốn bit nên trông vẫn nét; hễ ống kính
- * hay vật thể động là số bit cần tăng vọt, encoder không đủ trần → nhoè/vỡ ô.
- * Đây là lý do "cứ di chuyển là mờ". Trần rộng ra để lúc động còn chỗ mà tiêu.
- */
-const VIDEO_BITRATE: Record<Quality, number> = {
-  "480p": 1_200_000,
-  "720p": 2_500_000,
-  "1080p": 5_000_000,
-};
-
-/** Khung hình/giây khi quay và trần khi gửi. Mạng yếu thì rớt fps chứ KHÔNG hạ
- *  độ phân giải (xem degradationPreference trong tuneVideoSender).
- *
- *  30 chứ không 24: iOS kéo dài phơi sáng tối đa bằng một khung hình, nên 24fps
- *  cho phép phơi tới ~42ms — chính nó làm ảnh NHOÈ THẬT ở chỗ thiếu sáng mỗi khi
- *  camera hay vật thể động, trước cả khi encoder kịp có lỗi gì. */
-export const VIDEO_FPS = 30;
-
-/** react-native-webrtc đặt `navigator.product = "ReactNative"`. Dùng để né đúng
- *  một chỗ lệch API của bản mobile (xem tuneVideoSender). */
-const IS_RN =
-  typeof navigator !== "undefined" &&
-  (navigator as { product?: string }).product === "ReactNative";
-
-/**
- * Nói với encoder "đây là cảnh cần NÉT" thay vì "cần mượt". Web (Chrome/Safari)
- * hiểu contentHint; react-native-webrtc chưa có thuộc tính này nên bỏ qua.
- */
-function hintDetail(track: MediaStreamTrack | undefined) {
-  if (track && "contentHint" in track) track.contentHint = "detail";
-}
-
-/**
- * Chỉnh encoder của một sender video: trần bitrate theo chất lượng, khoá tỉ lệ
- * ảnh 1:1 và — quan trọng nhất — `degradationPreference`.
- *
- * Mặc định của WebRTC là "balanced"/"maintain-framerate": thiếu băng thông hay
- * cảnh động thì nó HẠ ĐỘ PHÂN GIẢI để giữ đủ fps. Với màn theo dõi camera thì
- * ngược đời — thà rớt fps còn hơn mờ. "maintain-resolution" giữ nguyên độ nét,
- * thiếu thì bớt fps.
- *
- * Gọi lại sau mỗi lần tạo peer connection mới hoặc thay track (sender mới thì
- * tham số về mặc định).
- */
-async function tuneVideoSender(
-  sender: RTCRtpSender | undefined,
-  quality: Quality,
-) {
-  if (!sender) return;
-  // Mỗi lượt PHẢI lấy tham số mới: setParameters chỉ nhận object vừa lấy từ
-  // getParameters (transactionId dùng một lần), gọi lại với object cũ là lỗi.
-  const fresh = () => {
-    const p = sender.getParameters();
-    // Safari có lúc trả mảng rỗng trước khi đàm phán xong. Bản iOS thì BẮT BUỘC
-    // số phần tử phải khớp với native, nên chỉ thêm khi đang rỗng.
-    if (!p.encodings || p.encodings.length === 0) p.encodings = [{}];
-    const enc = p.encodings[0];
-    enc.active = true;
-    enc.maxBitrate = VIDEO_BITRATE[quality];
-    enc.maxFramerate = VIDEO_FPS;
-    enc.scaleResolutionDownBy = 1;
-    // degradationPreference CHỈ đặt trên web. Bản react-native-webrtc 124 gửi
-    // chuỗi "MAINTAIN_RESOLUTION" sang một property NSNumber của iOS → native
-    // đọc ra 0 (= disabled), tức là im lặng áp sai; ép đúng số enum thì phải
-    // luồn qua ruột thư viện, mà đó là chỗ không đáng mạo hiểm với đường gọi.
-    if (!IS_RN) p.degradationPreference = "maintain-resolution";
-    return p;
-  };
-
-  try {
-    await sender.setParameters(fresh());
-  } catch {
-    // Trình duyệt chê degradationPreference thì thử lại chỉ với bitrate.
-    try {
-      const p = fresh();
-      delete p.degradationPreference;
-      await sender.setParameters(p);
-    } catch (err) {
-      console.error("[call] đặt bitrate video lỗi", err);
-    }
-  }
-}
-
 // Presence: mỗi người trong room ghi một "nhịp tim" định kỳ. Ai đóng tab đột
 // ngột thì nhịp thôi cập nhật và bị coi là đã ra sau STALE_MS.
 const HEARTBEAT_MS = 5000;
@@ -199,6 +112,25 @@ export async function requestQuality(
 ): Promise<void> {
   await updateDoc(doc(getDb(), "calls", callId), {
     wantQuality: { at: Date.now(), quality },
+  }).catch(() => {});
+}
+
+/**
+ * Nhịp quay người xem chọn được. Đây là đánh đổi THẲNG với độ nét: cùng một
+ * băng thông, ít khung hơn = mỗi khung nhiều bit hơn = nét hơn nhưng giật hơn.
+ *
+ * Quy đổi để chọn cho đúng — số bit mỗi khung cần để không vỡ ô: 480p ~30 kbit,
+ * 720p ~65 kbit, 1080p ~150 kbit. Lấy kbps đang nhận (hiện ở màn xem) chia cho
+ * fps là ra con số thật.
+ */
+export type Fps = 15 | 24 | 30;
+export const FPS_CHOICES: Fps[] = [15, 24, 30];
+export const DEFAULT_FPS: Fps = 30;
+
+/** Người xem yêu cầu bên chia sẻ đổi nhịp quay. */
+export async function requestFps(callId: string, fps: Fps): Promise<void> {
+  await updateDoc(doc(getDb(), "calls", callId), {
+    wantFps: { at: Date.now(), fps },
   }).catch(() => {});
 }
 
@@ -351,6 +283,8 @@ export async function shareCamera(params: {
   myEmail: string;
   stream: MediaStream;
   quality?: Quality;
+  /** Nhịp quay ban đầu, phải khớp với lúc nơi gọi tự mở camera. */
+  fps?: Fps;
   /** deviceId camera ban đầu (mobile truyền vào để zoom biết chỉnh device nào). */
   deviceId?: string;
   onState: (state: RTCPeerConnectionState) => void;
@@ -367,6 +301,7 @@ export async function shareCamera(params: {
   // Mặt cam + chất lượng hiện tại, để đổi cam/đổi chất lượng lấy lại đúng stream.
   let curFacing: "user" | "environment" = "user";
   let curQuality: Quality = params.quality ?? "720p";
+  let curFps: Fps = params.fps ?? DEFAULT_FPS;
   // deviceId camera đang quay (để đổi ống kính + zoom). Ban đầu theo tham số.
   let curDeviceId: string | undefined = params.deviceId;
 
@@ -395,7 +330,6 @@ export async function shareCamera(params: {
       // Trước khi bốc track vào offer, chỉnh stream cho khớp yêu cầu mic hiện tại
       // (thêm track mic nếu người xem đang bật, gỡ nếu tắt).
       await ensureAudioTrack();
-      hintDetail(params.stream.getVideoTracks()[0]);
       params.stream.getTracks().forEach((t) => pc!.addTrack(t, params.stream));
       pc.onicecandidate = (e) => {
         if (e.candidate) {
@@ -411,14 +345,6 @@ export async function shareCamera(params: {
         offer: { type: offer.type, sdp: offer.sdp, offerId: id },
         answer: null,
       });
-
-      // Chỉnh encoder SAU khi đã gửi offer, và KHÔNG await: đây là việc làm đẹp
-      // hình, tuyệt đối không được nằm chắn giữa đường signaling/ICE. Sender mới
-      // là tham số về mặc định nên phải chỉnh lại mỗi lần tạo offer.
-      void tuneVideoSender(
-        pc.getSenders().find((s) => s.track?.kind === "video"),
-        curQuality,
-      );
 
       // Nhận ICE của bên xem cho đúng offer này.
       candUnsub = onSnapshot(
@@ -465,18 +391,18 @@ export async function shareCamera(params: {
           ...(camId ? { deviceId: camId } : { facingMode: curFacing }),
           width: { ideal: q.width },
           height: { ideal: q.height },
+          // Đổi fps CHỈ bằng cách mở lại camera. Cố ý không dùng
+          // sender.setParameters: đường đó từng làm hỏng kết nối, và WebRTC dù
+          // sao cũng không gửi nhiều khung hơn số camera đẻ ra.
+          frameRate: { ideal: curFps },
         },
         audio: false,
       });
       const nt = ns.getVideoTracks()[0];
       if (!nt) return;
-      hintDetail(nt);
       params.stream.addTrack(nt);
       const sender = pc?.getSenders().find((s) => s.track?.kind === "video");
       await sender?.replaceTrack(nt);
-      // Đổi chất lượng → đổi luôn trần bitrate cho khớp khung hình mới. Không
-      // await: hỏng hay chậm cũng không được giữ cờ `reacquiring`.
-      void tuneVideoSender(sender, curQuality);
     } catch (err) {
       console.error("[call] lấy lại camera lỗi", err);
     } finally {
@@ -508,6 +434,7 @@ export async function shareCamera(params: {
 
   let lastFacingAt = 0;
   let lastQualityAt = 0;
+  let lastFpsAt = 0;
   let lastAudioAt = 0;
   let lastCameraAt = 0;
   let lastZoomAt = 0;
@@ -563,6 +490,19 @@ export async function shareCamera(params: {
       ) {
         lastQualityAt = wq.at;
         curQuality = wq.quality as Quality;
+        void reacquireVideo();
+      }
+      // Người xem đổi nhịp quay (đánh đổi mượt ↔ nét).
+      const wfp = d.wantFps;
+      if (
+        wfp &&
+        typeof wfp.at === "number" &&
+        wfp.at > lastFpsAt &&
+        Date.now() - wfp.at < 40000 &&
+        FPS_CHOICES.includes(wfp.fps as Fps)
+      ) {
+        lastFpsAt = wfp.at;
+        curFps = wfp.fps as Fps;
         void reacquireVideo();
       }
       // Người xem bật/tắt mic của bên chia sẻ. Đổi thì đàm phán lại để thêm/gỡ
