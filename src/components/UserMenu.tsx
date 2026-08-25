@@ -195,6 +195,13 @@ function CameraToggle({ user }: { user: User }) {
         <p className="flex items-center gap-2 text-sm font-medium">
           <CameraIcon size={16} gradient />
           Camera
+          {/* Khung nổi của bên chia sẻ đã bỏ, nên đây là chỗ DUY NHẤT còn báo
+              đang chia sẻ và có mấy người trong room. */}
+          {on && (
+            <span className="text-muted text-xs font-normal">
+              {call?.count ?? 1}
+            </span>
+          )}
         </p>
         <button
           type="button"

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { User } from "firebase/auth";
 import { useProfiles, type UserProfile } from "@/lib/profile";
+import { useViewport } from "@/lib/viewport";
 import { Conversation } from "./Conversation";
 
 /**
@@ -23,6 +24,20 @@ export function Inbox({ user }: { user: User }) {
   const { data: profiles, loading } = useProfiles(true);
   const people = profiles.filter((p) => p.uid !== user.uid);
   const [open, setOpen] = useState<UserProfile | null>(null);
+  const view = useViewport();
+
+  /*
+    Khoá cuộn của trang nền suốt lúc hộp thư mở. Trang Sổ tiền phía sau dài hơn
+    màn hình, mà iOS cứ bật bàn phím là cuộn trang để lộ ô đang gõ — cuộn cái
+    trang đó thì lớp phủ này trôi theo và phần đầu biến mất.
+  */
+  useEffect(() => {
+    const before = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = before;
+    };
+  }, []);
 
   return (
     /*
@@ -30,8 +45,19 @@ export function Inbox({ user }: { user: User }) {
       thứ bấm được lúc focus — trong lớp giả TikTok này nó lạc quẻ ở mọi nút,
       không riêng ô nhắn tin. Đánh đổi: bàn phím không còn thấy mình đang ở nút
       nào bên trong hộp thư.
+
+      Chiều cao lấy theo visual viewport thay vì `inset-0`: bật bàn phím thì lớp
+      phủ co lại đúng phần còn thấy được, nên phần đầu (ảnh + tên người đang
+      nhắn) và thanh soạn tin đều ở nguyên chỗ. Xem lib/viewport.ts.
     */
-    <div className="fixed inset-0 z-50 flex justify-center bg-[#e4e4e6] antialiased [&_:focus-visible]:outline-none">
+    <div
+      style={
+        view
+          ? { height: view.height, transform: `translateY(${view.offsetTop}px)` }
+          : undefined
+      }
+      className="fixed inset-x-0 top-0 z-50 flex h-dvh justify-center bg-[#e4e4e6] antialiased [&_:focus-visible]:outline-none"
+    >
       <div className="flex h-full w-full max-w-[430px] flex-col bg-white text-[#161823] shadow-[0_0_40px_rgba(0,0,0,0.14)]">
         {open ? (
           <Conversation

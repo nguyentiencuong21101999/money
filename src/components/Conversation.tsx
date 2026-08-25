@@ -95,6 +95,14 @@ export function Conversation({
         onChange={setDraft}
         onSend={() => void send()}
         disabled={!peer.uid}
+        /*
+          Bàn phím trồi lên làm khung tin co lại, phần đáy — tức mấy tin mới
+          nhất — bị đẩy khuất. Chờ một nhịp cho bàn phím chạy xong hoạt ảnh rồi
+          mới dán lại xuống đáy.
+        */
+        onFocus={() => {
+          setTimeout(() => endRef.current?.scrollIntoView({ block: "end" }), 300);
+        }}
       />
     </div>
   );
@@ -214,27 +222,59 @@ function TimeStamp({ at }: { at: number }) {
 
 /* ------------------------------------------------------------ thanh soạn */
 
+const LIMIT = 2000;
+
+/**
+ * Ô soạn tin dùng `contenteditable` chứ KHÔNG dùng <input>.
+ *
+ * Lý do duy nhất: Safari trên iOS treo một thanh phụ trợ (hai mũi tên chuyển ô
+ * + nút Xong) ngay trên bàn phím cho MỌI form control. Đó là giao diện của
+ * trình duyệt, không có thuộc tính hay CSS nào tắt được. `contenteditable`
+ * không phải form control nên Safari không gắn thanh đó.
+ *
+ * Cái giá phải trả: chữ nằm trong DOM chứ không nằm trong state, nên placeholder
+ * phải tự vẽ, dán phải tự lọc về chữ thuần, và giới hạn độ dài phải tự cắt.
+ */
 function Composer({
   value,
   onChange,
   onSend,
+  onFocus,
   disabled,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSend: () => void;
+  onFocus: () => void;
   disabled: boolean;
 }) {
   const typing = value.trim().length > 0;
+  const box = useRef<HTMLDivElement>(null);
+
+  /*
+    Kéo DOM về khớp với state khi state đổi mà KHÔNG do gõ — gửi xong thì xoá
+    trắng, gửi lỗi thì trả chữ lại. Lúc đang gõ thì hai bên vốn đã bằng nhau nên
+    không ghi gì cả; ghi đè lúc đó là con trỏ nhảy về đầu dòng sau mỗi phím.
+  */
+  useEffect(() => {
+    const el = box.current;
+    if (el && el.textContent !== value) el.textContent = value;
+  }, [value]);
+
+  function read() {
+    const el = box.current;
+    if (!el) return;
+    const text = el.textContent ?? "";
+    if (text.length > LIMIT) {
+      el.textContent = text.slice(0, LIMIT);
+      onChange(el.textContent);
+      return;
+    }
+    onChange(text);
+  }
 
   return (
-    <form
-      className="flex shrink-0 items-center gap-2 px-3 pt-1.5 pb-[max(10px,env(safe-area-inset-bottom))]"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSend();
-      }}
-    >
+    <div className="flex shrink-0 items-center gap-2 px-3 pt-1.5 pb-[max(10px,env(safe-area-inset-bottom))]">
       {/* Đang gõ thì nút máy ảnh nhường chỗ cho nút chữ "A", đúng như app thật. */}
       <button
         type="button"
@@ -245,21 +285,40 @@ function Composer({
       </button>
 
       <div className="flex min-h-[44px] min-w-0 flex-1 items-center gap-3 rounded-full bg-[#f1f1f2] py-1 pr-1.5 pl-4">
-        <input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-          placeholder="Nhắn tin..."
-          maxLength={2000}
-          /*
-            outline đặt thẳng bằng style chứ không bằng class: globals.css có
-            rule chung tô vòng hồng cho MỌI ô nhập lúc focus, và ở đây nó phá
-            hẳn dáng TikTok. Style nội tuyến thắng chắc mọi stylesheet, khỏi
-            phải đọ độ ưu tiên chọn lọc với rule đó.
-          */
-          style={{ outline: "none", boxShadow: "none" }}
-          className="min-w-0 flex-1 bg-transparent text-[16px] placeholder:text-[#16182359]"
-        />
+        <div className="relative min-w-0 flex-1">
+          {!value && (
+            <span className="pointer-events-none absolute inset-0 flex items-center text-[16px] text-[#16182359]">
+              Nhắn tin...
+            </span>
+          )}
+
+          <div
+            ref={box}
+            contentEditable={!disabled}
+            suppressContentEditableWarning
+            role="textbox"
+            aria-multiline="true"
+            aria-label="Nhắn tin"
+            enterKeyHint="send"
+            onFocus={onFocus}
+            onInput={read}
+            onKeyDown={(e) => {
+              // Enter là GỬI; muốn xuống dòng thì Shift+Enter.
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                onSend();
+              }
+            }}
+            onPaste={(e) => {
+              // Dán thẳng vào contenteditable là lôi cả thẻ HTML của nguồn vào.
+              e.preventDefault();
+              const text = e.clipboardData.getData("text/plain");
+              document.execCommand("insertText", false, text);
+            }}
+            style={{ outline: "none" }}
+            className="max-h-[110px] min-w-0 overflow-y-auto text-[16px] leading-[1.4] break-words whitespace-pre-wrap"
+          />
+        </div>
 
         {/* Gõ rồi thì chỉ còn mặt sticker; mic và dấu + nhường chỗ cho nút gửi,
             và nút gửi nằm NGAY TRONG ô nhập chứ không đứng ngoài. */}
@@ -269,7 +328,8 @@ function Composer({
 
         {typing && (
           <button
-            type="submit"
+            type="button"
+            onClick={onSend}
             aria-label="Gửi"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2b8cff_0%,#7b4dff_100%)] active:opacity-80"
           >
@@ -277,7 +337,7 @@ function Composer({
           </button>
         )}
       </div>
-    </form>
+    </div>
   );
 }
 
