@@ -181,16 +181,35 @@ export interface CameraInfo {
 }
 
 /**
+ * Bên chia sẻ làm được gì — để bên xem đừng vẽ nút bấm-không-ăn. THIẾU field
+ * này (app bản cũ chưa gửi) thì bên xem coi như làm được hết, y như trước.
+ */
+export interface SharerCaps {
+  /** Chỉnh được mức zoom (app: videoZoomFactor; web: tuỳ máy có capability). */
+  zoom: boolean;
+  /** Khoá/mở nét ở tâm được (chỉ app). */
+  focus: boolean;
+}
+
+/**
  * Liệt kê camera VẬT LÝ để người xem chọn ống kính (= zoom quang thật). Bỏ các
  * "camera ảo" gộp nhiều ống kính (Dual/Triple) cho danh sách gọn: chỉ còn cam
  * trước + tối đa 3 ống kính sau (siêu rộng / rộng / tele).
+ *
+ * Hai nền tảng đọc nhãn khác nhau nên tách hẳn hai nhánh: react-native-webrtc
+ * có field `facing` → giữ NGUYÊN đường cũ của app; web không có, nhãn lại là
+ * tên do HỆ ĐIỀU HÀNH dịch → xem `webCameras`.
  */
 export async function listCameras(): Promise<CameraInfo[]> {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams = devices.filter((d) => d.kind === "videoinput");
+    const native = cams.some(
+      (d) => typeof (d as { facing?: string }).facing === "string",
+    );
+    if (!native) return webCameras(cams);
     const out: CameraInfo[] = [];
-    for (const d of devices) {
-      if (d.kind !== "videoinput") continue;
+    for (const d of cams) {
       const label = d.label || "";
       if (/dual|triple/i.test(label)) continue; // camera ảo gộp ống kính
       const facing: "user" | "environment" =
@@ -208,6 +227,105 @@ export async function listCameras(): Promise<CameraInfo[]> {
   } catch {
     return [];
   }
+}
+
+/** Hạ chữ + bỏ dấu để so từ khoá. `normalize` thiếu ở vài runtime → có phao. */
+function plain(s: string): string {
+  const low = s.toLowerCase();
+  try {
+    return low.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  } catch {
+    return low;
+  }
+}
+
+type LensKind = "front" | "ultra" | "wide" | "tele" | "combo";
+
+/**
+ * Đọc nhãn thiết bị ra loại ống kính. Nhãn trên web là tên hệ điều hành ĐÃ
+ * DỊCH: iPhone tiếng Việt trả "Camera góc siêu rộng sau", "Camera kép rộng
+ * sau" — so bằng từ khoá tiếng Anh là trượt hết, nên mới có cảnh bảy nút cùng
+ * chữ "1x". Ở đây gộp từ khoá Anh + Việt (đã bỏ dấu); tiếng khác rơi về "wide"
+ * rồi được đánh số ở dưới, không bao giờ trùng tên nữa.
+ */
+function lensKind(label: string): LensKind {
+  const s = plain(label);
+  if (/dual|triple|(^|[^a-z])kep($|[^a-z])|ba ong kinh|ba camera/.test(s))
+    return "combo";
+  if (/front|truoc|self/.test(s)) return "front";
+  if (/ultra|sieu rong|0\.5/.test(s)) return "ultra";
+  if (/tele/.test(s)) return "tele";
+  return "wide";
+}
+
+/** Xếp nút theo tiêu cự: 0.5x → 1x → tele → (cam ảo) → cam trước cuối hàng. */
+const LENS_RANK: Record<LensKind, number> = {
+  ultra: 0,
+  wide: 1,
+  tele: 2,
+  combo: 3,
+  front: 4,
+};
+
+/** Lọc trùng + bỏ cam ảo + xếp thứ tự. Trả kèm `kind` để `pickCameraId` dùng. */
+function webItems(cams: MediaDeviceInfo[]): { d: MediaDeviceInfo; kind: LensKind }[] {
+  const seen = new Set<string>();
+  let items: { d: MediaDeviceInfo; kind: LensKind }[] = [];
+  for (const d of cams) {
+    const label = d.label || "";
+    const key = plain(label);
+    // Trùng nhãn = một camera bị liệt kê hai lần (hay gặp trên Chrome sau khi
+    // cắm/rút). Nhãn RỖNG (chưa cấp quyền) thì không gộp, kẻo mất sạch cam.
+    if (key && seen.has(key)) continue;
+    if (key) seen.add(key);
+    items.push({ d, kind: lensKind(label) });
+  }
+  // Bỏ camera ảo gộp ống kính — nhưng chỉ khi còn cam thật để chọn.
+  const real = items.filter((i) => i.kind !== "combo");
+  if (real.length) items = real;
+  items.sort((a, b) => LENS_RANK[a.kind] - LENS_RANK[b.kind]);
+  return items;
+}
+
+/** Tên ngắn vẽ lên nút khi không đoán được ống kính (webcam rời, cam ảo, nhãn
+ *  rỗng): bỏ phần trong ngoặc và chữ "camera", cắt cho vừa nút. */
+function shortName(label: string, i: number): string {
+  const s = label
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\b(camera|webcam|cam)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!s) return `Cam ${i + 1}`;
+  return s.length > 10 ? `${s.slice(0, 9).trim()}…` : s;
+}
+
+/**
+ * Danh sách ống kính khi bên chia sẻ là WEB. Ba cái sai cũ, lộ ra đúng lúc
+ * share từ web: nhãn tiếng Việt không khớp regex tiếng Anh nên mọi nút thành
+ * "1x"; cam ảo gộp ống kính không bị lọc nên có tới bảy nút (bấm vào còn dễ
+ * đen hình); hai thiết bị trùng nhãn vẫn vẽ hai nút y hệt. Cuối cùng, nút nào
+ * còn trùng tên thì lấy tên thiết bị — để cái mình bấm đúng là cái mình thấy.
+ */
+function webCameras(cams: MediaDeviceInfo[]): CameraInfo[] {
+  const items = webItems(cams);
+  const out: CameraInfo[] = items.map((i) => ({
+    deviceId: i.d.deviceId,
+    label: i.d.label || "",
+    zoom:
+      i.kind === "front"
+        ? "Trước"
+        : i.kind === "ultra"
+          ? "0.5x"
+          : i.kind === "tele"
+            ? "Tele"
+            : "1x",
+    facing: i.kind === "front" ? "user" : "environment",
+  }));
+  const count = new Map<string, number>();
+  for (const c of out) count.set(c.zoom, (count.get(c.zoom) ?? 0) + 1);
+  return out.map((c, i) =>
+    (count.get(c.zoom) ?? 0) > 1 ? { ...c, zoom: shortName(c.label, i) } : c,
+  );
 }
 
 /** Người xem chọn thẳng một camera (theo deviceId đã công bố ở call doc). */
@@ -241,7 +359,20 @@ export async function pickCameraId(
     const byFacing = cams.filter(
       (d) => (d as { facing?: string }).facing === want,
     );
-    if (!byFacing.length) return undefined; // web / không có thông tin mặt
+    if (!byFacing.length) {
+      // Web: không có field `facing` → đọc nhãn. Chọn thẳng deviceId thì Safari
+      // không tự vớ phải "camera kép" (cam ảo), và nút ống kính bên xem sáng
+      // đúng cái đang quay ngay từ đầu.
+      const labelled = cams.some((d) => (d.label || "").trim().length > 0);
+      if (!labelled) return undefined; // chưa cấp quyền → nhãn rỗng, để nơi gọi dùng facingMode
+      const items = webItems(cams);
+      const hit =
+        facing === "user"
+          ? items.find((i) => i.kind === "front")
+          : (items.find((i) => i.kind === "wide") ??
+            items.find((i) => i.kind !== "front"));
+      return hit?.d.deviceId;
+    }
     if (facing === "user") return byFacing[0].deviceId;
     // Mặt sau nhiều ống kính → lấy "Back Camera" (wide chính), tránh ultrawide/tele.
     const main = byFacing.find((d) => /back camera$/i.test(d.label));
@@ -316,6 +447,11 @@ export async function shareCamera(params: {
   let curFps: Fps = params.fps ?? DEFAULT_FPS;
   // deviceId camera đang quay (để đổi ống kính + zoom). Ban đầu theo tham số.
   let curDeviceId: string | undefined = params.deviceId;
+  // App (react-native) truyền onZoom/onFocus vì nó chỉnh được ở tầng native;
+  // web thì không. Cờ này để đường web đi nhánh riêng mà KHÔNG đổi gì của app.
+  const isApp = !!(params.onZoom || params.onFocus);
+  // Mức zoom người xem đang yêu cầu — web phải áp lại sau mỗi lần mở lại camera.
+  let curZoom = 1;
 
   // Ghi emails + đánh dấu đang chia sẻ (merge, không xoá wantOffer bên xem đã đặt).
   await setDoc(
@@ -329,6 +465,10 @@ export async function shareCamera(params: {
     },
     { merge: true },
   );
+
+  // Công bố khả năng của máy này (zoom / lấy nét) ngay từ đầu, để bên xem chỉ vẽ
+  // nút bấm-có-ăn. Khai báo hàm được hoist nên gọi trước chỗ định nghĩa là hợp lệ.
+  publishCaps();
 
   // Công bố danh sách camera để người xem chọn ống kính (zoom quang). Không chặn
   // luồng chính; lỗi thì thôi, người xem vẫn có nút đổi trước/sau mặc định.
@@ -351,6 +491,43 @@ export async function shareCamera(params: {
       activeCamera: curDeviceId ?? null,
       activeFacing: curFacing,
     }).catch(() => {});
+  }
+
+  /**
+   * Zoom khi bên chia sẻ là WEB: applyConstraints trên track đang gửi. App
+   * KHÔNG đi đường này — nó có `onZoom` (videoZoomFactor ở tầng native, nét
+   * hơn). Trình duyệt nào không có capability `zoom` (Safari iOS) thì hàm này
+   * im lặng, và `caps` đã báo trước cho bên xem để nút zoom không hiện.
+   */
+  async function applyWebZoom(factor: number) {
+    const t = params.stream.getVideoTracks()[0];
+    const range = (
+      t?.getCapabilities?.() as { zoom?: { min: number; max: number } } | undefined
+    )?.zoom;
+    if (!t || !range) return;
+    const v = Math.min(range.max, Math.max(range.min, factor));
+    try {
+      // `zoom` chưa có trong lib.dom → phải đi qua unknown.
+      await t.applyConstraints({
+        advanced: [{ zoom: v }],
+      } as unknown as MediaTrackConstraints);
+    } catch (err) {
+      console.error("[call] zoom web lỗi", err);
+    }
+  }
+
+  /**
+   * Nói cho bên xem biết máy này làm được GÌ, để nó đừng vẽ nút bấm-không-ăn.
+   * Trước đây bên xem luôn vẽ nút zoom, mà web thì bỏ qua yêu cầu zoom hoàn
+   * toàn → bấm mãi không thấy gì. Gửi lại sau mỗi lần đổi ống kính vì mỗi ống
+   * kính có dải zoom riêng.
+   */
+  function publishCaps() {
+    const t = params.stream.getVideoTracks()[0];
+    const zoom = isApp
+      ? true
+      : !!(t?.getCapabilities?.() as { zoom?: unknown } | undefined)?.zoom;
+    void updateDoc(callRef, { caps: { zoom, focus: isApp } }).catch(() => {});
   }
 
   let pc: RTCPeerConnection | null = null;
@@ -437,27 +614,41 @@ export async function shareCamera(params: {
       // Đổi fps CHỈ bằng cách mở lại camera. Cố ý không dùng sender.setParameters:
       // đường đó từng làm hỏng kết nối, và WebRTC dù sao cũng không gửi nhiều
       // khung hơn số camera đẻ ra.
-      let ns: MediaStream;
-      try {
-        ns = await navigator.mediaDevices.getUserMedia({
-          video: { ...lens, ...size, frameRate: { ideal: curFps } },
-          audio: false,
-        });
-      } catch (err) {
-        // Ống kính này không đỡ nổi nhịp đang chọn → thà mất fps còn hơn mất
-        // hình. Không có nhánh này thì đổi sang ống kính yếu là đen màn.
-        console.error("[call] mở camera với fps yêu cầu lỗi, thử lại không fps", err);
-        ns = await navigator.mediaDevices.getUserMedia({
-          video: { ...lens, ...size },
-          audio: false,
-        });
+      // Thử lần lượt: đúng yêu cầu → bỏ fps → bỏ luôn ống kính.
+      //  - Bỏ fps: ống kính này không đỡ nổi nhịp đang chọn → thà mất fps còn
+      //    hơn mất hình.
+      //  - Bỏ ống kính: phao cứu màn ĐEN. Track cũ đã stop trước đó rồi, nên mở
+      //    không nổi cái mới là bên xem ngồi trước màn hình đen tới khi bấm gì
+      //    khác — hay gặp khi share từ web và chọn một camera máy không mở được.
+      const tries: MediaTrackConstraints[] = [
+        { ...lens, ...size, frameRate: { ideal: curFps } },
+        { ...lens, ...size },
+      ];
+      if (camId) tries.push({ facingMode: curFacing, ...size });
+      let ns: MediaStream | null = null;
+      for (const video of tries) {
+        try {
+          ns = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+          break;
+        } catch (err) {
+          console.error("[call] mở camera lỗi, thử cấu hình kế tiếp", err);
+        }
       }
-      const nt = ns.getVideoTracks()[0];
+      const nt = ns?.getVideoTracks()[0];
       if (!nt) return;
       params.stream.addTrack(nt);
       const sender = pc?.getSenders().find((s) => s.track?.kind === "video");
       await sender?.replaceTrack(nt);
+      if (!isApp) {
+        // Web: phao trên có thể đã mở một camera KHÁC cái người xem bấm → lấy
+        // deviceId thật của track để nút sáng đúng, rồi áp lại zoom cho ống
+        // kính mới (mỗi ống kính một dải zoom).
+        const got = nt.getSettings?.().deviceId;
+        if (got) curDeviceId = got;
+        if (curZoom !== 1) await applyWebZoom(curZoom);
+      }
       publishActive();
+      publishCaps();
     } catch (err) {
       console.error("[call] lấy lại camera lỗi", err);
     } finally {
@@ -534,7 +725,12 @@ export async function shareCamera(params: {
       if (wz && typeof wz.at === "number" && wz.at > lastZoomAt) {
         lastZoomAt = wz.at;
         const factor = Number(wz.factor) || 1;
-        if (curDeviceId && params.onZoom) params.onZoom(curDeviceId, factor);
+        curZoom = factor;
+        if (params.onZoom) {
+          if (curDeviceId) params.onZoom(curDeviceId, factor);
+        } else {
+          void applyWebZoom(factor); // web: applyConstraints (nếu máy đỡ được)
+        }
       }
       // Người xem khoá/mở nét ở tâm camera.
       const wfo = d.wantFocus;
@@ -714,6 +910,8 @@ export async function viewRoom(params: {
   onCameras?: (cams: CameraInfo[]) => void;
   /** Camera bên chia sẻ ĐANG quay — nguồn sự thật để tô nút và lật mặt cam. */
   onActiveCamera?: (deviceId: string | null, facing: "user" | "environment") => void;
+  /** Máy bên kia làm được gì (zoom/lấy nét) — để ẩn nút vô tác dụng. */
+  onCaps?: (caps: SharerCaps) => void;
   /** Số liệu luồng nhận, mỗi giây một nhịp (xem CallStats). */
   onStats?: (stats: CallStats) => void;
 }): Promise<ViewSession> {
@@ -735,6 +933,7 @@ export async function viewRoom(params: {
   let stopStats: (() => void) | null = null;
   let lastCamerasJson = "";
   let lastActive = "";
+  let lastCaps = "";
 
   const unsubDoc = onSnapshot(
     callRef,
@@ -746,6 +945,18 @@ export async function viewRoom(params: {
         if (json !== lastCamerasJson) {
           lastCamerasJson = json;
           params.onCameras(cams as CameraInfo[]);
+        }
+      }
+      // Khả năng của máy bên kia (zoom/lấy nét). Không có field → im lặng, bên
+      // xem giữ mặc định "làm được" nên app bản cũ không mất nút nào.
+      if (params.onCaps) {
+        const c = s.data()?.caps as
+          | { zoom?: unknown; focus?: unknown }
+          | undefined;
+        const key = `${c?.zoom}|${c?.focus}`;
+        if (c && key !== lastCaps) {
+          lastCaps = key;
+          params.onCaps({ zoom: c.zoom !== false, focus: c.focus !== false });
         }
       }
       // Camera đang quay: bên chia sẻ nói, bên xem KHÔNG đoán.

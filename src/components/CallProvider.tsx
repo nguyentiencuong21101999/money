@@ -33,6 +33,7 @@ import {
   type Fps,
   type Presence,
   type Quality,
+  type SharerCaps,
   type ShareSession,
   type ViewSession,
 } from "@/lib/call";
@@ -66,6 +67,8 @@ interface CallState {
   facing?: "user" | "environment";
   /** Số liệu luồng đang nhận (chỉ bên xem), cập nhật mỗi giây. */
   stats?: CallStats | null;
+  /** Máy bên chia sẻ làm được gì. Chưa báo → coi như làm được hết. */
+  caps?: SharerCaps;
 }
 
 interface CallContext {
@@ -127,15 +130,23 @@ export function CallProvider({ children }: { children: ReactNode }) {
           facingMode: "user",
           width: { ideal: q.width },
           height: { ideal: q.height },
-          frameRate: { ideal: 24 },
+          // Khớp DEFAULT_FPS bên shareCamera (bản app đã sửa từ trước): lệch thì
+          // bên xem thấy nút "30fps" sáng trong khi cam đang quay 24, và cú đổi
+          // fps đầu tiên trông như không có tác dụng.
+          frameRate: { ideal: DEFAULT_FPS },
         },
         audio: true,
       });
+      // deviceId THẬT của track vừa mở: có nó thì nút ống kính bên xem sáng đúng
+      // cái đang quay ngay từ đầu, thay vì không nút nào sáng.
+      const deviceId = stream.getVideoTracks()[0]?.getSettings().deviceId;
       const handle = await shareCamera({
         callId: ctx.callId,
         myEmail: ctx.email,
         stream,
         quality: ctx.quality,
+        fps: DEFAULT_FPS,
+        deviceId,
         onState: (connState) => setCall((c) => (c ? { ...c, connState } : c)),
       });
       captureRef.current = { handle, stream };
@@ -216,11 +227,13 @@ export function CallProvider({ children }: { children: ReactNode }) {
     void requestAudio(cid, on);
   }, []);
 
-  // Chỉ GỬI yêu cầu; nút sáng theo `activeCamera` bên chia sẻ báo về, nên không
-  // còn cảnh nút sáng ở ống kính mà máy kia không hề đang dùng.
+  // Tô tạm nút vừa bấm, rồi `activeCamera` bên chia sẻ báo về sẽ ĐÈ lên. Bản app
+  // mới thì cái đè tới sau chưa đầy một giây; bản app cũ không bao giờ gửi field
+  // đó nên vẫn còn nút tạm mà dùng, thay vì không nút nào sáng.
   const setCamera = useCallback((deviceId: string) => {
     const cid = viewCallIdRef.current;
     if (!cid) return;
+    setCall((c) => (c ? { ...c, cameraId: deviceId } : c));
     void requestCamera(cid, deviceId);
   }, []);
 
@@ -294,6 +307,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         onRemoteStream: (remoteStream) =>
           setCall((c) => (c ? { ...c, remoteStream } : c)),
         onCameras: (cameras) => setCall((c) => (c ? { ...c, cameras } : c)),
+        onCaps: (caps) => setCall((c) => (c ? { ...c, caps } : c)),
         onActiveCamera: (deviceId, facing) => {
           // Đồng bộ cờ lật mặt theo sự thật bên kia báo về.
           facingRef.current = facing;
@@ -660,41 +674,46 @@ function ViewerWidget({
                   onKeyDown={(e) => {
                     if (e.key === "Enter") e.currentTarget.blur();
                   }}
-                  className="w-10 rounded-full bg-black/60 px-1 py-0.5 text-center text-[10px] font-medium text-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                  className="w-10 rounded-full bg-black/60 px-1 py-0.5 text-center text-[10px] font-medium text-white ring-1 ring-white/30 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
-              {/* Zoom THẬT: bên chia sẻ chỉnh videoZoomFactor (nét hơn phóng CSS). */}
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => applyZoom(Math.max(1, +(zoom - 0.5).toFixed(1)))}
-                  className="flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-sm font-semibold text-white"
-                >
-                  −
-                </button>
-                {/* Gõ số lẻ được (vd 3.6). Áp ngay khi gõ, chuẩn hoá khi rời ô. */}
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  min={1}
-                  step={0.1}
-                  value={zoomText}
-                  onChange={(e) => {
-                    setZoomText(e.target.value);
-                    const v = parseFloat(e.target.value);
-                    if (!Number.isNaN(v) && v >= 1) onSetZoom(+v.toFixed(1));
-                  }}
-                  onBlur={() => applyZoom(parseFloat(zoomText) || 1)}
-                  className="w-12 rounded-full bg-black/60 px-1 py-0.5 text-center text-[10px] font-medium text-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => applyZoom(Math.min(10, +(zoom + 0.5).toFixed(1)))}
-                  className="flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-sm font-semibold text-white"
-                >
-                  +
-                </button>
-              </div>
+              {/* Zoom THẬT: bên chia sẻ chỉnh videoZoomFactor (nét hơn phóng CSS).
+                  Ẩn hẳn khi máy bên kia KHÔNG zoom được — share từ web trên
+                  iPhone là vậy: trước đây vẫn vẽ ba nút −/1/+ bấm mãi không ăn.
+                  Bên chia sẻ chưa báo caps (app bản cũ) → vẫn hiện như trước. */}
+              {call.caps?.zoom !== false && (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => applyZoom(Math.max(1, +(zoom - 0.5).toFixed(1)))}
+                    className="flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-sm font-semibold text-white"
+                  >
+                    −
+                  </button>
+                  {/* Gõ số lẻ được (vd 3.6). Áp ngay khi gõ, chuẩn hoá khi rời ô. */}
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={1}
+                    step={0.1}
+                    value={zoomText}
+                    onChange={(e) => {
+                      setZoomText(e.target.value);
+                      const v = parseFloat(e.target.value);
+                      if (!Number.isNaN(v) && v >= 1) onSetZoom(+v.toFixed(1));
+                    }}
+                    onBlur={() => applyZoom(parseFloat(zoomText) || 1)}
+                    className="w-12 rounded-full bg-black/60 px-1 py-0.5 text-center text-[10px] font-medium text-white ring-1 ring-white/30 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => applyZoom(Math.min(10, +(zoom + 0.5).toFixed(1)))}
+                    className="flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-sm font-semibold text-white"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
             </div>
           )}
           {/* Chọn ống kính = ZOOM QUANG thật (đổi hẳn camera bên chia sẻ). */}
