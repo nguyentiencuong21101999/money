@@ -155,7 +155,7 @@
     Hai chặng đầu thì đổi thoải mái — chúng luôn đậm hơn chặng cuối nên không
     ảnh hưởng ngưỡng; muốn thêm hay bớt tím thì chỉnh ở đó.
   */
-  --ramp: linear-gradient(135deg, #a21caf 0%, #c0208d 45%, #d61f6d 100%);
+  --ramp: linear-gradient(135deg, #fe2c55 0%, #f72d8f 50%, #e81a5f 100%);
 
   /*
     Gradient nền trang, tách thành biến vì bề mặt nổi (sheet, dropdown) dùng lại
