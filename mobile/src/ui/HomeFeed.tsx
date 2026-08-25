@@ -164,16 +164,15 @@ function TopBar({
 }) {
   return (
     <View style={styles.topBar} pointerEvents="box-none">
-      {/* Nút LIVE = công tắc chia sẻ camera. Bật → "LIVE" (đỏ), bấm để tắt → "OFF". */}
+      {/* Nút LIVE = công tắc chia sẻ camera. Giữ nguyên màu trắng ở cả hai trạng
+          thái (cố ý không tô đỏ) — chỉ đổi chữ LIVE/OFF và icon để nhận biết. */}
       <Pressable style={styles.live} onPress={onToggleLive} hitSlop={10}>
         <Ionicons
           name={live ? "radio" : "radio-outline"}
           size={20}
-          color={live ? colors.red : "#fff"}
+          color="#fff"
         />
-        <Text style={[styles.liveText, live && styles.liveOn]}>
-          {live ? "LIVE" : "OFF"}
-        </Text>
+        <Text style={styles.liveText}>{live ? "LIVE" : "OFF"}</Text>
       </Pressable>
 
       <ScrollView
@@ -357,7 +356,6 @@ const styles = StyleSheet.create({
   },
   live: { flexDirection: "row", alignItems: "center", gap: 3 },
   liveText: { color: "#fff", fontSize: 13, fontWeight: "600" },
-  liveOn: { color: colors.red },
   topTabs: {
     alignItems: "center",
     gap: 18,

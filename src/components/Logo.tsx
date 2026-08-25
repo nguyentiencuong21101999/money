@@ -25,9 +25,9 @@ export function Logo({ size = 28 }: { size?: number }) {
         {/* Ba chặng khớp đúng --ramp trong globals.css — cùng dải với nút và
             thanh tiến độ. Đổi ở đây thì đổi cả ở đó, và ở src/app/icon.svg. */}
         <linearGradient id="logo-ramp" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#a21caf" />
-          <stop offset="45%" stopColor="#c0208d" />
-          <stop offset="100%" stopColor="#d61f6d" />
+          <stop offset="0%" stopColor="#fe2c55" />
+          <stop offset="50%" stopColor="#f72d8f" />
+          <stop offset="100%" stopColor="#e81a5f" />
         </linearGradient>
       </defs>
       <rect width="64" height="64" rx="15" fill="url(#logo-ramp)" />

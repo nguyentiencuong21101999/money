@@ -11,6 +11,8 @@ import { NativeModules } from "react-native";
  */
 const { KeepAlivePip } = NativeModules as {
   KeepAlivePip?: {
+    /** ISO8601 ngày hết hạn bản build (provisioning profile). Rỗng nếu không có. */
+    provisioningExpiry?: string;
     start(trackId: string): void;
     stop(): void;
     setImage(base64: string): void;
@@ -18,6 +20,18 @@ const { KeepAlivePip } = NativeModules as {
     setCameraFocus(deviceId: string, locked: boolean): void;
   };
 };
+
+/**
+ * Ngày hết hạn của bản build (bản dev/free ký 7 ngày), đọc từ provisioning profile.
+ * iOS không có màn hình nào cho người dùng xem, nên app tự hiện. null nếu không đọc
+ * được (vd bản phân phối chính thức không giới hạn kiểu này).
+ */
+export function provisioningExpiry(): Date | null {
+  const iso = KeepAlivePip?.provisioningExpiry;
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
 /**
  * Zoom camera đang chia sẻ (theo deviceId + hệ số, 1 = không zoom). Chỉnh thẳng
