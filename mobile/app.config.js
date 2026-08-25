@@ -2,7 +2,7 @@
 // đòi `iosUrlScheme` (REVERSED_CLIENT_ID của Firebase) ngay lúc build, mà giá trị
 // đó là bí mật theo từng project nên không hardcode vào repo.
 //
-// Lấy từ đâu: Firebase Console → thêm app iOS (bundle com.secret.login) → tải
+// Lấy từ đâu: Firebase Console → thêm app iOS (bundle com.nhokcuong.secretapp) → tải
 // GoogleService-Info.plist → mở ra, các giá trị cần nằm ở:
 //   EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME  = REVERSED_CLIENT_ID
 //   EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID   = CLIENT_ID
@@ -32,7 +32,7 @@ module.exports = {
     newArchEnabled: false,
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.secret.login",
+      bundleIdentifier: "com.nhokcuong.secretapp",
       infoPlist: {
         UIBackgroundModes: ["voip", "audio"],
         ITSAppUsesNonExemptEncryption: false,
