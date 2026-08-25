@@ -32,6 +32,30 @@ class KeepAlivePip: NSObject, AVPictureInPictureControllerDelegate,
 
   @objc static func requiresMainQueueSetup() -> Bool { return true }
 
+  /// Hằng số đưa sang JS: ngày hết hạn của bản build (từ provisioning profile
+  /// nhúng trong app). Bản dev/free ký 7 ngày; iOS không có màn hình nào cho người
+  /// dùng xem, nên app tự đọc rồi hiện. Rỗng nếu không đọc được (vd bản App Store).
+  @objc func constantsToExport() -> [AnyHashable: Any]! {
+    return ["provisioningExpiry": Self.provisioningExpiryISO() ?? ""]
+  }
+
+  /// Đọc `embedded.mobileprovision` (là dữ liệu CMS ký) — phần plist nằm lọt giữa
+  /// `<?xml … </plist>`, quét thô theo byte rồi parse. Trả ISO8601 của ExpirationDate.
+  private static func provisioningExpiryISO() -> String? {
+    guard let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+      let data = try? Data(contentsOf: url),
+      // isoLatin1 ánh xạ mọi byte 1-1 nên không bao giờ nil (khác ascii/utf8 với byte nhị phân).
+      let raw = String(data: data, encoding: .isoLatin1),
+      let start = raw.range(of: "<?xml"),
+      let end = raw.range(of: "</plist>"),
+      let plistData = String(raw[start.lowerBound..<end.upperBound]).data(using: .isoLatin1),
+      let plist = try? PropertyListSerialization.propertyList(from: plistData, options: [], format: nil)
+        as? [String: Any],
+      let exp = plist["ExpirationDate"] as? Date
+    else { return nil }
+    return ISO8601DateFormatter().string(from: exp)
+  }
+
   @objc func start(_ trackId: NSString) {
     let id = trackId as String
     DispatchQueue.main.async {
@@ -262,8 +286,15 @@ class KeepAlivePip: NSObject, AVPictureInPictureControllerDelegate,
   func pictureInPictureControllerTimeRangeForPlayback(
     _ pictureInPictureController: AVPictureInPictureController
   ) -> CMTimeRange {
-    // Live: bắt đầu 0, dài vô hạn.
-    return CMTimeRange(start: .zero, duration: .positiveInfinity)
+    // KHÔNG dùng duration vô hạn: iOS thấy vô hạn thì coi là luồng TRỰC TIẾP và dán
+    // nhãn "Trực tiếp" + thanh kiểu live. Trả về một khoảng HỮU HẠN rất dài (24h)
+    // ôm quanh thời điểm hiện tại → iOS hiện như video thường đang phát (thanh tiến
+    // trình bình thường), không còn nhãn trực tiếp. Chỉ đổi hiển thị điều khiển,
+    // KHÔNG đụng đường bơm khung hình giữ camera sống.
+    let now = CMClockGetTime(CMClockGetHostTimeClock())
+    let start = CMTimeSubtract(now, CMTime(seconds: 300, preferredTimescale: 1))
+    let duration = CMTime(seconds: 86_400, preferredTimescale: 1)
+    return CMTimeRange(start: start, duration: duration)
   }
 
   func pictureInPictureControllerIsPlaybackPaused(
