@@ -533,21 +533,39 @@ export async function shareCamera(params: {
   let pc: RTCPeerConnection | null = null;
   let offerId = "";
   let candUnsub: Unsubscribe | null = null;
+  // Tăng mỗi lần makeOffer() được GỌI (không phải mỗi lần xong). Hai lượt gọi
+  // gối lên nhau (vd wantAudio và wantOffer cùng bắn trong một snapshot) thì
+  // lượt gọi trước phải NHẬN RA mình đã bị lượt sau vượt qua sau mỗi await, rồi
+  // tự rút — không thì cả hai cùng ghi `pc`/`offerId` (biến CHUNG của closure)
+  // và lượt xong sau cùng có thể đang cầm RTCPeerConnection của lượt kia, gọi
+  // setLocalDescription lên một kết nối người khác vừa mới stable xong →
+  // "InvalidStateError: ... Called in wrong state: stable".
+  let offerGen = 0;
 
   async function makeOffer() {
+    const gen = ++offerGen;
     try {
       pc?.close();
       candUnsub?.();
       await clearCandidates(callRef, "sharerCandidates").catch(() => {});
+      if (gen !== offerGen) return; // một lượt makeOffer mới hơn đã bắt đầu
       const id = newId();
-      offerId = id;
-      pc = new RTCPeerConnection(ICE_CONFIG);
-      pc.onconnectionstatechange = () => params.onState(pc!.connectionState);
+      // Dùng biến CỤC BỘ `conn` cho mọi lệnh gọi trong lượt này, KHÔNG đụng vào
+      // `pc` (biến chung) cho tới khi chắc chắn lượt này còn là lượt mới nhất.
+      // Đụng sớm là đúng chỗ lượt cũ ghi đè lên kết nối của lượt mới.
+      const conn = new RTCPeerConnection(ICE_CONFIG);
+      conn.onconnectionstatechange = () => {
+        if (gen === offerGen) params.onState(conn.connectionState);
+      };
       // Trước khi bốc track vào offer, chỉnh stream cho khớp yêu cầu mic hiện tại
       // (thêm track mic nếu người xem đang bật, gỡ nếu tắt).
       await ensureAudioTrack();
-      params.stream.getTracks().forEach((t) => pc!.addTrack(t, params.stream));
-      pc.onicecandidate = (e) => {
+      if (gen !== offerGen) {
+        conn.close();
+        return;
+      }
+      params.stream.getTracks().forEach((t) => conn.addTrack(t, params.stream));
+      conn.onicecandidate = (e) => {
         if (e.candidate) {
           void addDoc(collection(callRef, "sharerCandidates"), {
             ...candidateData(e.candidate),
@@ -555,8 +573,19 @@ export async function shareCamera(params: {
           }).catch(() => {});
         }
       };
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
+      const offer = await conn.createOffer();
+      if (gen !== offerGen) {
+        conn.close();
+        return;
+      }
+      await conn.setLocalDescription(offer);
+      if (gen !== offerGen) {
+        conn.close();
+        return;
+      }
+      // Tới đây chắc chắn là lượt mới nhất — giờ mới gán vào biến chung.
+      pc = conn;
+      offerId = id;
       await updateDoc(callRef, {
         offer: { type: offer.type, sdp: offer.sdp, offerId: id },
         answer: null,
@@ -569,8 +598,8 @@ export async function shareCamera(params: {
           s.docChanges().forEach((c) => {
             if (c.type !== "added") return;
             const d = c.doc.data();
-            if (d.offerId === offerId && pc && pc.signalingState !== "closed") {
-              void pc.addIceCandidate(new RTCIceCandidate(d)).catch(() => {});
+            if (d.offerId === id && conn.signalingState !== "closed") {
+              void conn.addIceCandidate(new RTCIceCandidate(d)).catch(() => {});
             }
           });
         },
@@ -766,8 +795,20 @@ export async function shareCamera(params: {
       }
       // Người xem bật/tắt mic của bên chia sẻ. Đổi thì đàm phán lại để thêm/gỡ
       // track mic (makeOffer gọi ensureAudioTrack trước khi tạo offer).
+      //
+      // Có mốc hết hạn 40s GIỐNG các wantX khác — thiếu nó thì field này (đã
+      // ghi từ một session cũ, còn nằm lại trong document) cứ mở phiên chia sẻ
+      // mới là bắn lại: lastAudioAt của session mới luôn bắt đầu từ 0, nên bất
+      // kỳ mốc thời gian cũ nào cũng > 0 và trông như một yêu cầu vừa tới. Bắn
+      // đúng lúc `wantOffer` cũng đang bắn (cùng một snapshot đầu tiên lúc mới
+      // mount) thì makeOffer() bị gọi HAI LẦN gối lên nhau ngay từ đầu.
       const wa = d.wantAudio;
-      if (wa && typeof wa.at === "number" && wa.at > lastAudioAt) {
+      if (
+        wa &&
+        typeof wa.at === "number" &&
+        wa.at > lastAudioAt &&
+        Date.now() - wa.at < 40000
+      ) {
         lastAudioAt = wa.at;
         const on = !!wa.on;
         if (on !== curAudio) {
@@ -998,14 +1039,27 @@ export async function viewRoom(params: {
           stopStats?.();
           stopStats = null;
           await clearCandidates(callRef, "requesterCandidates").catch(() => {});
-          pc = new RTCPeerConnection(ICE_CONFIG);
-          pc.onconnectionstatechange = () => params.onState(pc!.connectionState);
-          pc.ontrack = (e) => {
+          // Một offer MỚI HƠN có thể đã tới trong lúc await ở trên (sharer gửi
+          // liền hai offer sát nhau) — `handledOffer` đã bị lượt đó đổi tên rồi.
+          // Rút ở đây, ĐỪNG động tới pc/unsubCands/stopStats (biến chung): lượt
+          // mới hơn có thể đang dùng chúng.
+          if (handledOffer !== oid) return;
+          // Biến CỤC BỘ `conn` cho mọi lệnh gọi trong lượt này. Đụng vào biến
+          // chung `pc` sớm là đúng chỗ khiến hai lượt xử lý offer gối lên nhau
+          // (sharer gửi offer B trong lúc offer A còn đang xử lý) tranh nhau
+          // một RTCPeerConnection: lượt A gọi setLocalDescription(answer) lên
+          // đúng cái kết nối mà lượt B vừa ổn định xong (đã "stable"), ra lỗi
+          // "InvalidStateError: ... Called in wrong state: stable".
+          const conn = new RTCPeerConnection(ICE_CONFIG);
+          conn.onconnectionstatechange = () => {
+            if (handledOffer === oid) params.onState(conn.connectionState);
+          };
+          conn.ontrack = (e) => {
             // Dùng thẳng stream do trình duyệt tạo cho kết nối này: Safari vẽ
             // được track thêm sau, còn MediaStream tự dựng thì hay đen hình.
-            if (e.streams[0]) params.onRemoteStream(e.streams[0]);
+            if (handledOffer === oid && e.streams[0]) params.onRemoteStream(e.streams[0]);
           };
-          pc.onicecandidate = (e) => {
+          conn.onicecandidate = (e) => {
             if (e.candidate) {
               void addDoc(collection(callRef, "requesterCandidates"), {
                 ...candidateData(e.candidate),
@@ -1013,11 +1067,25 @@ export async function viewRoom(params: {
               }).catch((err) => console.error("[call] ghi ICE người xem lỗi", err));
             }
           };
-          await pc.setRemoteDescription(
+          await conn.setRemoteDescription(
             new RTCSessionDescription({ type: offer.type, sdp: offer.sdp }),
           );
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
+          if (handledOffer !== oid) {
+            conn.close();
+            return;
+          }
+          const answer = await conn.createAnswer();
+          if (handledOffer !== oid) {
+            conn.close();
+            return;
+          }
+          await conn.setLocalDescription(answer);
+          if (handledOffer !== oid) {
+            conn.close();
+            return;
+          }
+          // Tới đây chắc chắn là lượt mới nhất — giờ mới gán vào biến chung.
+          pc = conn;
           await updateDoc(callRef, {
             answer: { type: answer.type, sdp: answer.sdp, offerId: oid },
           });
@@ -1028,8 +1096,8 @@ export async function viewRoom(params: {
               cs.docChanges().forEach((c) => {
                 if (c.type !== "added") return;
                 const d = c.doc.data();
-                if (d.offerId === oid && pc && pc.signalingState !== "closed") {
-                  void pc
+                if (d.offerId === oid && conn.signalingState !== "closed") {
+                  void conn
                     .addIceCandidate(new RTCIceCandidate(d))
                     .catch((err) => console.error("[call] nhận ICE lỗi", err));
                 }
@@ -1039,7 +1107,7 @@ export async function viewRoom(params: {
           );
 
           // Đo số liệu — bước cuối, chỉ đọc, không nằm chắn đường nào.
-          if (params.onStats) stopStats = readStats(pc, params.onStats);
+          if (params.onStats) stopStats = readStats(conn, params.onStats);
         } catch (err) {
           // Hay gặp: Firestore từ chối (rules chưa Publish) — trước đây bị nuốt
           // nên bên xem cứ đen màn hình mà không rõ vì sao.
