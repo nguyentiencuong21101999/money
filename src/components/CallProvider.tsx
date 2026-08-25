@@ -411,9 +411,13 @@ function FloatingCall({
   onSetZoom: (factor: number) => void;
 }) {
   if (!call) return null;
-  if (call.role === "sharer") {
-    return <SharerWidget call={call} onHangUp={onHangUp} />;
-  }
+  /*
+    Bên CHIA SẺ không vẽ khung nổi nữa — dấu hiệu đang chia sẻ dời vào hàng
+    "Camera" trong menu tài khoản (số người trong room + nút gạt để dừng).
+    Khung nổi không cần cho luồng chạy: WebRTC gửi track thẳng từ getUserMedia,
+    thẻ <video> trước đây chỉ để tự xem lại mình.
+  */
+  if (call.role === "sharer") return null;
   return (
     <ViewerWidget
       call={call}
@@ -425,75 +429,6 @@ function FloatingCall({
       onSetCamera={onSetCamera}
       onSetZoom={onSetZoom}
     />
-  );
-}
-
-/**
- * Khung nổi nhỏ của NGƯỜI CHIA SẺ (client): hiện camera của chính mình, dấu
- * "đang chia sẻ / đang chờ" + nút Dừng. Camera chỉ bật khi có người vào room
- * (localStream mới có), còn một mình thì đen + "đang chờ".
- */
-function SharerWidget({
-  call,
-  onHangUp,
-}: {
-  call: CallState;
-  onHangUp: () => void;
-}) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const stream = call.localStream;
-
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el) return;
-    if (!stream) {
-      el.srcObject = null;
-      return;
-    }
-    const attach = () => {
-      el.srcObject = stream;
-      void el.play().catch(() => {});
-    };
-    attach();
-    stream.addEventListener("addtrack", attach);
-    return () => stream.removeEventListener("addtrack", attach);
-  }, [stream]);
-
-  const waiting = !stream;
-  return (
-    <div className="fixed right-3 bottom-3 z-50 w-44 overflow-hidden rounded-2xl bg-black/85 shadow-lg">
-      <div className="relative aspect-3/4 w-full bg-black">
-        <video
-          ref={videoRef}
-          playsInline
-          autoPlay
-          muted
-          className="h-full w-full object-contain"
-        />
-        <span className="absolute left-1.5 top-1.5 flex items-center gap-1 rounded-full bg-critical/90 px-1.5 py-0.5 text-[10px] font-medium text-white">
-          <span className="h-1.5 w-1.5 rounded-full bg-white" />
-          {waiting ? "Đang chờ" : "Đang chia sẻ"}
-        </span>
-        <span className="absolute right-1.5 top-1.5 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
-          {call.count} trong room
-        </span>
-      </div>
-      <div className="px-2 py-1.5">
-        <p className="truncate text-[11px] font-medium text-white">
-          {waiting
-            ? `Chờ ${call.peerName} vào room mới bật cam`
-            : `Đang chia sẻ camera với ${call.peerName}`}
-        </p>
-        <p className="text-[10px] text-white/60">{stateLabel(call.connState)}</p>
-        <button
-          type="button"
-          onClick={onHangUp}
-          className="mt-1 w-full rounded-lg bg-white/15 py-1 text-[11px] font-medium text-white transition active:scale-[0.97]"
-        >
-          Dừng
-        </button>
-      </div>
-    </div>
   );
 }
 
