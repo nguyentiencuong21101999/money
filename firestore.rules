@@ -18,6 +18,12 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
       // Admin chỉ ĐỌC hồ sơ người khác, không sửa được.
       allow read: if isAdmin();
+      // Danh bạ của trang /inbox: ai đã đăng nhập cũng liệt kê được hồ sơ người
+      // khác. ĐÁNH ĐỔI: document users/{uid} chứa email + tên + ảnh, nên bật
+      // dòng này là mọi tài khoản thấy được email của mọi tài khoản còn lại.
+      // Không có cách nào lọc bớt field trong rules — muốn giấu email thì phải
+      // tách sang một collection danh bạ riêng chỉ chứa tên và ảnh.
+      allow read: if request.auth != null;
 
       match /transactions/{txId} {
         allow read, delete: if request.auth != null && request.auth.uid == userId;
@@ -151,6 +157,45 @@ service cloud.firestore {
           && request.auth.token.email_verified == true
           && request.auth.token.email.lower() in
              get(/databases/$(database)/documents/calls/$(callId)).data.emails;
+      }
+    }
+
+    // Tin nhắn của trang /inbox. Phòng cố định theo cặp người: id = hai UID sắp
+    // xếp, nối bằng "__".
+    //
+    // Quyền thành viên suy ra TỪ CHÍNH ID PHÒNG, KHÔNG tra document cha. Đây là
+    // điểm khác /calls ở trên, và là chỗ bản đầu tiên viết sai: nó dùng
+    // get(/threads/$(threadId)).data.emails, mà lúc mở cuộc trò chuyện lần đầu
+    // document cha chưa tồn tại — get() trả null, đọc .data trên null là lỗi,
+    // nên rule trả false và MỌI lượt mở phòng mới đều bị từ chối trước khi kịp
+    // gửi tin nào. Suy từ id thì phòng rỗng cũng đọc được, lại đỡ một lượt đọc
+    // tính tiền cho mỗi thao tác.
+    //
+    // Dùng UID chứ không dùng email vì email có thể chứa dấu gạch dưới, cắt
+    // chuỗi bằng "__" sẽ ra sai mảnh; UID của Firebase chỉ gồm chữ và số.
+    match /threads/{threadId} {
+      function isMember() {
+        return request.auth != null
+          && request.auth.uid in threadId.split('__');
+      }
+
+      allow read: if isMember();
+      // Document cha chỉ giữ phần tóm tắt cho danh sách hộp thư. Nó KHÔNG quyết
+      // định quyền gì cả, nên không cần khoá field nào ngoài việc phải là người
+      // trong phòng mới được ghi.
+      allow create, update: if isMember();
+
+      match /messages/{messageId} {
+        allow read: if isMember();
+        // Chỉ tạo mới, KHÔNG sửa/xoá: tin đã gửi thì hai bên thấy như nhau.
+        // `from` phải đúng là mình — thiếu dòng này thì một người trong phòng
+        // ghi được tin mạo danh người kia.
+        allow create: if isMember()
+          && request.resource.data.from == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.at is number;
       }
     }
 

@@ -92,6 +92,16 @@ export function UserMenu({ user, onSignOut }: Props) {
 
           <PushToggle uid={user.uid} />
 
+          <Link
+            href="/inbox"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="border-hairline hover:bg-expense/8 flex items-center gap-2 border-t px-4 py-3 text-sm font-medium transition"
+          >
+            📬
+            Hộp thư
+          </Link>
+
           <CameraToggle user={user} />
 
           {/* Thư viện ảnh — cho mọi người, không riêng admin: mỗi người chỉ thấy
